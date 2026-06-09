@@ -54,4 +54,4 @@ TORCH_DTYPE = "bfloat16"   # bfloat16 is preferred on A100/H100; use float16 for
 
 # ── Output ─────────────────────────────────────────────────────────────────────
 # Per-sample CSVs and aggregate metric JSONs are written here.
-RESULTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "results")
+RESULTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "results")
