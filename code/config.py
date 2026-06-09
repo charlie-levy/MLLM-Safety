@@ -29,8 +29,9 @@ FIGSTEP_IMAGE_DIR = "data/images/SafeBench"          # directory containing the 
 # XSTest: safe prompts rendered as text-on-image PNGs.
 # Run create_xstest_images.py once on the login node to generate these.
 # Repo: https://github.com/paul-rottger/exaggerated-safety
-XSTEST_CSV      = "/home/ch169788/xstest/xstest.csv"          # used by create_xstest_images.py
+XSTEST_CSV       = "/home/ch169788/xstest/xstest.csv"           # used by create_xstest_images.py
 XSTEST_SAFE_JSON = "/home/ch169788/xstest/XSTest/xstest_safe.json"
+XSTEST_IMAGE_DIR = "/home/ch169788/xstest/XSTest/images"        # fallback if JSON paths are stale
 
 # MMSA: only the safe samples (label=yes, indices 1-128 and 2001-2300).
 # The JSON was generated from the MMSafetyAwareness benchmark.

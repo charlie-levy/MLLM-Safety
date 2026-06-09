@@ -26,7 +26,7 @@ from PIL import Image
 
 from config import (
     FIGSTEP_REPO_PATH, FIGSTEP_CSV, FIGSTEP_IMAGE_DIR,
-    XSTEST_SAFE_JSON,
+    XSTEST_SAFE_JSON, XSTEST_IMAGE_DIR,
     MMSA_SAFE_JSON, MMSA_IMAGE_DIR, MMSA_IMAGE_DIR2,
 )
 
@@ -123,7 +123,18 @@ def load_xstest(split: str = "test") -> list[dict]:
     missing = 0
     samples = []
     for item in data.values():
+        idx = int(item["idx"])
         img_path = item["image_path"]
+
+        # If the stored path doesn't exist (e.g. copied from a different user's system),
+        # try to find the image in XSTEST_IMAGE_DIR by idx.
+        if not os.path.exists(img_path):
+            for fname in [f"{idx:04d}.png", f"{idx - 1:04d}.png", f"{idx}.png"]:
+                candidate = os.path.join(XSTEST_IMAGE_DIR, fname)
+                if os.path.exists(candidate):
+                    img_path = candidate
+                    break
+
         if os.path.exists(img_path):
             image = Image.open(img_path).convert("RGB")
         else:
