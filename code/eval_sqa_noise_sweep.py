@@ -11,6 +11,7 @@ os.chdir(os.path.dirname(os.path.dirname(__file__)))
 
 from model_loader import load_model_and_processor
 from evaluator import Evaluator
+from metrics import compute_accuracy
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--use_tis", action="store_true", help="Load TIS adapter")
@@ -49,12 +50,12 @@ evaluator = Evaluator(model, processor,
                       corruption_severity=args.severity)
 results = evaluator.run(samples)
 
-correct = sum(1 for r in results if r["label"].lower() in r["response"].lower())
-accuracy = (correct / len(results)) * 100
+metrics = compute_accuracy(results)
 
 print("\n" + "=" * 80)
-print("SQA Accuracy (%s, %s sev=%d): %.2f%% (%d/%d)" % (
-    model_tag, args.noise_type, args.severity, accuracy, correct, len(results)))
+print("SQA Accuracy (%s, %s sev=%d): %.2f%% (%d/%d, unknown=%d)" % (
+    model_tag, args.noise_type, args.severity,
+    metrics["accuracy"], metrics["n_correct"], metrics["n_total"], metrics["n_unknown"]))
 print("=" * 80)
 
 out_dir = "results/sqa_noise_sweep"
@@ -62,11 +63,12 @@ os.makedirs(out_dir, exist_ok=True)
 out_file = os.path.join(out_dir, "acc_%s_%s_sev%d.json" % (model_tag, args.noise_type, args.severity))
 with open(out_file, "w") as f:
     json.dump({
-        "model": model_tag,
+        "model":      model_tag,
         "noise_type": args.noise_type,
-        "severity": args.severity,
-        "accuracy": accuracy,
-        "correct": correct,
-        "total": len(results),
+        "severity":   args.severity,
+        "accuracy":   metrics["accuracy"],
+        "correct":    metrics["n_correct"],
+        "unknown":    metrics["n_unknown"],
+        "total":      metrics["n_total"],
     }, f, indent=2)
 print("Saved: %s" % out_file)

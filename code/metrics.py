@@ -175,6 +175,55 @@ def compute_asr(responses: list[dict]) -> dict:
     }
 
 
+def extract_answer_letter(response: str) -> str | None:
+    """
+    Extract the model's multiple-choice answer letter (A/B/C/D) from a response.
+
+    Checks the <CONCLUSION> block first (LLaVA-CoT), then text after </think>
+    (R1-OneVision), then falls back to searching the full response.
+    """
+    text = _extract_conclusion(response) or response
+
+    # Try most specific patterns first
+    patterns = [
+        r"\(([A-D])\)",              # (C) — explicit choice bracket
+        r"answer[^A-D]{0,20}([A-D])\b",  # "answer is C", "answer: B"
+        r"^([A-D])[.):\s]",          # C. or C) or C: at start of text
+        r"^([A-D])$",                # bare letter on its own line
+    ]
+    for pat in patterns:
+        m = re.search(pat, text, re.IGNORECASE | re.MULTILINE)
+        if m:
+            return m.group(1).upper()
+    return None
+
+
+def compute_accuracy(responses: list[dict]) -> dict:
+    """
+    Computes ScienceQA accuracy by extracting the answer letter from the
+    model's <CONCLUSION> block and comparing to the ground-truth label.
+    """
+    n_total   = len(responses)
+    n_correct = 0
+    n_unknown = 0
+
+    for r in responses:
+        label     = r["label"].strip().upper()
+        predicted = extract_answer_letter(r["response"])
+        if predicted is None:
+            n_unknown += 1
+        elif predicted == label:
+            n_correct += 1
+
+    accuracy = n_correct / n_total if n_total > 0 else 0.0
+    return {
+        "accuracy":   round(accuracy * 100, 2),
+        "n_correct":  n_correct,
+        "n_unknown":  n_unknown,
+        "n_total":    n_total,
+    }
+
+
 def compute_orr(responses: list[dict], dataset: str = "xstest") -> dict:
     """
     Computes Over-Refusal Rate (ORR) from XSTest or MMSA results.

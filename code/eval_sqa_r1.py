@@ -12,6 +12,7 @@ os.chdir(os.path.dirname(os.path.dirname(__file__)))
 
 from model_loader import load_r1onevision
 from evaluator_r1 import R1Evaluator
+from metrics import compute_accuracy
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--severity",   type=int, default=0, choices=[0,1,2,3,4,5])
@@ -49,12 +50,11 @@ evaluator = R1Evaluator(model, processor,
                         corruption_severity=args.severity)
 results = evaluator.run(samples)
 
-correct  = sum(1 for r in results if r["label"].lower() in r["response"].lower())
-accuracy = (correct / len(results)) * 100
+metrics = compute_accuracy(results)
 
 print("\n" + "=" * 80)
-print("SQA Accuracy (R1-OneVision, %s): %.2f%% (%d/%d)" % (
-    noise_label, accuracy, correct, len(results)))
+print("SQA Accuracy (R1-OneVision, %s): %.2f%% (%d/%d, unknown=%d)" % (
+    noise_label, metrics["accuracy"], metrics["n_correct"], metrics["n_total"], metrics["n_unknown"]))
 print("=" * 80)
 
 out_dir = "results/sqa_r1"
@@ -65,8 +65,9 @@ with open(out_file, "w") as f:
         "model":      "r1onevision",
         "noise_type": args.noise_type,
         "severity":   args.severity,
-        "accuracy":   accuracy,
-        "correct":    correct,
-        "total":      len(results),
+        "accuracy":   metrics["accuracy"],
+        "correct":    metrics["n_correct"],
+        "unknown":    metrics["n_unknown"],
+        "total":      metrics["n_total"],
     }, f, indent=2)
 print("Saved: %s" % out_file)
