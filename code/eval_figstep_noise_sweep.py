@@ -52,11 +52,12 @@ os.makedirs(out_dir, exist_ok=True)
 out_file = os.path.join(out_dir, "asr_%s_%s_sev%d.json" % (model_tag, args.noise_type, args.severity))
 with open(out_file, "w") as f:
     json.dump({
-        "model": model_tag,
-        "noise_type": args.noise_type,
-        "severity": args.severity,
-        "asr": metrics["asr_pct"],
+        "model":       model_tag,
+        "noise_type":  args.noise_type,
+        "severity":    args.severity,
+        "asr_pct":     metrics["asr_pct"],
         "n_successful": metrics["n_successful"],
-        "n_total": metrics["n_total"],
+        "n_refused":   metrics["n_refused"],
+        "n_total":     metrics["n_total"],
     }, f, indent=2)
 print("Saved: %s" % out_file)

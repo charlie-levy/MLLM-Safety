@@ -81,8 +81,8 @@ with open(out_file, "w") as f:
         "model":       model_tag,
         "noise_type":  args.noise_type,
         "severity":    args.severity,
-        "xstest":      xstest_metrics,
-        "mmsa":        mmsa_metrics,
-        "avg_orr_pct": avg_orr_pct,
+        "xstest":        xstest_metrics,
+        "mmsa_combined": mmsa_metrics,
+        "avg_orr_pct":   avg_orr_pct,
     }, f, indent=2)
 print("Saved: %s" % out_file)
