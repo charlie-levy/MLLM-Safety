@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=figstep_base
 #SBATCH --partition=normal
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:tesla_v100-pcie-32gb:1
 #SBATCH --mem=64G
 #SBATCH --time=2:00:00
 #SBATCH --output=figstep_base.log

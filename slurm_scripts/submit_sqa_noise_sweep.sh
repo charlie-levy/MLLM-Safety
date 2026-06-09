@@ -15,7 +15,7 @@ for NOISE in gaussian_noise gaussian_blur; do
 
       sbatch --job-name="$JOB" \
              --partition=normal \
-             --gres=gpu:1 \
+             --gres=gpu:tesla_v100-pcie-32gb:1 \
              --mem=64G \
              --time=4:00:00 \
              --output="$LOG" \
