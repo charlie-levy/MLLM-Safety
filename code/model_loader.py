@@ -6,7 +6,6 @@ import os
 import sys
 from transformers import AutoProcessor, AutoModelForImageTextToText
 from peft import PeftModel
-from accelerate import Accelerator
 
 try:
     config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.py')
@@ -22,10 +21,8 @@ def load_llama_cot(lora_path=None):
     model = AutoModelForImageTextToText.from_pretrained(
         "Xkev/Llama-3.2V-11B-cot",
         torch_dtype=torch.bfloat16,
-        device_map="cpu",
+        device_map="auto",
     )
-    model.gradient_checkpointing_enable()
-    model.enable_sequential_cpu_offload()
     if lora_path:
         print("[lora] Loading adapter from " + lora_path)
         peft_model = PeftModel.from_pretrained(model, lora_path)
