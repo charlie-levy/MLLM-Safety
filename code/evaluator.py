@@ -13,7 +13,7 @@ from PIL import Image as PILImage, ImageFilter
 
 from config import MAX_NEW_TOKENS, DO_SAMPLE, TEMPERATURE
 
-BATCH_SIZE = 1
+BATCH_SIZE = 1  # Keep at 1 to avoid OOM on 16GB GPU nodes
 
 
 class Evaluator:
