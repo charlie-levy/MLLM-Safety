@@ -4,7 +4,7 @@
 import torch
 import os
 import sys
-from transformers import AutoProcessor, AutoModelForImageTextToText
+from transformers import AutoProcessor, AutoModelForImageTextToText, Qwen2VLForConditionalGeneration
 from peft import PeftModel
 
 try:
@@ -36,6 +36,27 @@ def load_llama_cot(lora_path=None):
             print("[lora] No unexpected keys -- adapter loaded cleanly.")
         model = peft_model
         print("[lora] Adapter loaded (PEFT-wrapped, memory-efficient inference).")
+    return model, processor
+
+
+def load_r1onevision():
+    """Load R1-OneVision (Qwen2-VL-7B based) model and processor."""
+    try:
+        config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.py')
+        config_dict = {}
+        exec(open(config_path).read(), config_dict)
+        model_id = config_dict.get('R1ONEVISION_MODEL_ID', 'Fancy-MLLM/R1-OneVision-7B')
+    except Exception:
+        model_id = 'Fancy-MLLM/R1-OneVision-7B'
+
+    print("[model_loader] Loading R1-OneVision from '%s' ..." % model_id)
+    processor = AutoProcessor.from_pretrained(model_id)
+    model = Qwen2VLForConditionalGeneration.from_pretrained(
+        model_id,
+        torch_dtype=torch.bfloat16,
+        device_map="auto",
+    )
+    print("[model_loader] R1-OneVision loaded.")
     return model, processor
 
 

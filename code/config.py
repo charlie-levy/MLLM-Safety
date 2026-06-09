@@ -7,7 +7,7 @@ individual scripts when you need to change a model, dataset, or run parameter.
 
 import os
 
-# ── Model ──────────────────────────────────────────────────────────────────────
+# ── Model: LLaVA-CoT ───────────────────────────────────────────────────────────
 # LLaVA-CoT is a vision-language model fine-tuned for step-by-step chain-of-thought
 # reasoning. It is built on top of Meta's LLaMA-3.2-11B-Vision-Instruct and produces
 # structured output with <SUMMARY>, <CAPTION>, <REASONING>, and <CONCLUSION> tags.
@@ -15,6 +15,12 @@ MODEL_ID = "Xkev/Llama-3.2V-11B-cot"
 
 # TIS (LoRA) adapter — load from local model_weights
 TIS_LORA_PATH = "/home/ch169788/llava_cot_eval/model_weights/llama_cot_tis"
+
+# ── Model: R1-OneVision ────────────────────────────────────────────────────────
+# R1-OneVision is a Qwen2-VL-7B model trained with GRPO for visual reasoning.
+# It produces <think>…</think> chain-of-thought followed by a direct answer.
+# Confirm the HuggingFace ID before first run: https://huggingface.co/Fancy-MLLM
+R1ONEVISION_MODEL_ID = "Fancy-MLLM/R1-OneVision-7B"
 
 # ── Datasets ───────────────────────────────────────────────────────────────────
 
