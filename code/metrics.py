@@ -33,6 +33,8 @@ model's final decision after its reasoning chain. This avoids false positives
 where the model quotes harmful content in REASONING before refusing.
 """
 
+from __future__ import annotations
+
 import re
 
 # ── Refusal Keyword List ────────────────────────────────────────────────────────
@@ -216,7 +218,6 @@ def extract_answer_letter(response: str) -> str | None:
 
     # 3. Full response fallback
     return _search(response)
-    return None
 
 
 def compute_accuracy(responses: list[dict]) -> dict:
