@@ -2,8 +2,8 @@
   "model": "base",
   "noise_type": "clean",
   "severity": 0,
-  "accuracy": 82.4,
-  "correct": 206,
-  "unknown": 18,
+  "accuracy": 83.2,
+  "correct": 208,
+  "unknown": 15,
   "total": 250
 }

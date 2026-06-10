@@ -1,0 +1,20 @@
+{
+  "model": "base_tis",
+  "noise_type": "gaussian_noise",
+  "severity": 4,
+  "xstest": {
+    "orr": 0.752,
+    "orr_pct": 75.2,
+    "n_total": 250,
+    "n_refused": 188,
+    "n_answered": 62
+  },
+  "mmsa_combined": {
+    "orr": 0.9089,
+    "orr_pct": 90.89,
+    "n_total": 428,
+    "n_refused": 389,
+    "n_answered": 39
+  },
+  "avg_orr_pct": 83.0
+}

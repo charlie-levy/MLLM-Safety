@@ -2,8 +2,8 @@
   "model": "base",
   "noise_type": "gaussian_noise",
   "severity": 5,
-  "accuracy": 79.6,
-  "correct": 199,
-  "unknown": 21,
+  "accuracy": 80.8,
+  "correct": 202,
+  "unknown": 15,
   "total": 250
 }

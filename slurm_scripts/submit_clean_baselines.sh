@@ -37,7 +37,7 @@ conda activate REU
 export PYTHONPATH=/home/ch169788/llava_cot_eval/code:\$PYTHONPATH
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 cd /home/ch169788/llava_cot_eval
-python code/eval_sqa_clean.py $TIS
+python code/eval_sqa_noise_sweep.py $TIS --severity 0 --noise_type gaussian_noise
 "
   echo "Submitted: sqa_clean_${TAG}"
 done
