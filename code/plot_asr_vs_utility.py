@@ -22,14 +22,20 @@ def load_asr(model, noise_type, sev):
     return d.get("asr_pct") or d.get("asr")
 
 def load_sqa(model, noise_type, sev):
+    # Prefer the LLaMA-3 judged accuracy (judged_*.json); fall back to regex acc_*.json.
+    folder = "sqa_blur_sweep" if (sev > 0 and noise_type == "gaussian_blur") else "sqa_noise_sweep"
     if sev == 0:
-        path = os.path.join(RES, "sqa_noise_sweep", "acc_%s_clean.json" % model)
+        stem = "%s_clean" % model
     elif noise_type == "gaussian_noise":
-        path = os.path.join(RES, "sqa_noise_sweep", "acc_%s_gaussian_noise_sev%d.json" % (model, sev))
+        stem = "%s_gaussian_noise_sev%d" % (model, sev)
     else:
-        path = os.path.join(RES, "sqa_blur_sweep",  "acc_%s_gaussian_blur_sev%d.json"  % (model, sev))
-    with open(path) as f: d = json.load(f)
-    return d["accuracy"]
+        stem = "%s_gaussian_blur_sev%d" % (model, sev)
+    for prefix in ("judged_", "acc_"):
+        path = os.path.join(RES, folder, prefix + stem + ".json")
+        if os.path.exists(path):
+            with open(path) as f:
+                return json.load(f)["accuracy"]
+    raise FileNotFoundError(stem)
 
 SEVS = [0, 1, 2, 3, 4, 5]
 
