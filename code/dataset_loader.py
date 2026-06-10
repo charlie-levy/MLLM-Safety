@@ -81,9 +81,11 @@ def load_figstep(split: str = "test") -> list[dict]:
         matches = glob.glob(pattern)
 
         if matches:
-            image = Image.open(matches[0]).convert("RGB")
+            image_path = matches[0]
+            image = Image.open(image_path).convert("RGB")
         else:
             print(f"[dataset_loader] Warning: no image found for pattern {pattern}, using blank.")
+            image_path = None
             image = _blank_image()
 
         samples.append({
@@ -95,6 +97,7 @@ def load_figstep(split: str = "test") -> list[dict]:
                 "category":    str(row["category_name"]),
                 "category_id": str(row["category_id"]),
                 "task_id":     str(row["task_id"]),
+                "image_path":  image_path,
             },
         })
 
