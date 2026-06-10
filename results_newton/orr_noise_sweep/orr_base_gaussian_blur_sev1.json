@@ -1,0 +1,20 @@
+{
+  "model": "base",
+  "noise_type": "gaussian_blur",
+  "severity": 1,
+  "xstest": {
+    "orr": 0.284,
+    "orr_pct": 28.4,
+    "n_total": 250,
+    "n_refused": 71,
+    "n_answered": 179
+  },
+  "mmsa_combined": {
+    "orr": 0.6192,
+    "orr_pct": 61.92,
+    "n_total": 428,
+    "n_refused": 265,
+    "n_answered": 163
+  },
+  "avg_orr_pct": 45.2
+}
