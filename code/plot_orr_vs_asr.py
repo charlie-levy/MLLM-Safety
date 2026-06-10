@@ -32,8 +32,9 @@ def load_orr_clean(model):
     return d["avg_orr_pct"]
 
 def load_orr_noise(model, noise_type, sev):
+    folder = "orr_blur_sweep" if noise_type == "gaussian_blur" else "orr_noise_sweep"
     fname = "orr_%s_%s_sev%d.json" % (model, noise_type, sev)
-    with open(os.path.join(RES, "orr_noise_sweep", fname)) as f:
+    with open(os.path.join(RES, folder, fname)) as f:
         d = json.load(f)
     return d["avg_orr_pct"]
 

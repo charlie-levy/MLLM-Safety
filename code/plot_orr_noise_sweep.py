@@ -9,11 +9,11 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 
 BASE_DIR = os.path.dirname(os.path.dirname(__file__))
-RES      = os.path.join(BASE_DIR, "results_newton", "orr_noise_sweep")
 
 def load_orr(model, noise_type, sev):
+    folder = "orr_blur_sweep" if noise_type == "gaussian_blur" else "orr_noise_sweep"
     fname = "orr_%s_%s_sev%d.json" % (model, noise_type, sev)
-    with open(os.path.join(RES, fname)) as f:
+    with open(os.path.join(BASE_DIR, "results_newton", folder, fname)) as f:
         d = json.load(f)
     xs  = d["xstest"]["orr_pct"]
     mms = d["mmsa_combined"]["orr_pct"]

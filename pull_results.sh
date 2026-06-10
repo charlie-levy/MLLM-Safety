@@ -9,13 +9,17 @@ set -u
 NEWTON="ch169788@newton.ist.ucf.edu:/home/ch169788/llava_cot_eval/results"
 DEST=~/Desktop/REU/llava_cot_eval/results_newton
 
-mkdir -p "$DEST/orr" "$DEST/orr_noise_sweep" \
+mkdir -p "$DEST/orr" "$DEST/orr_noise_sweep" "$DEST/orr_blur_sweep" \
          "$DEST/sqa_noise_sweep" "$DEST/sqa_blur_sweep" \
          "$DEST/figstep_noise_sweep" "$DEST/figstep_blur_sweep"
 
-echo "==> ORR noise+blur sweep (20 JSON + 20 CSV)"
-scp "$NEWTON/orr_noise_sweep/*.json" "$DEST/orr_noise_sweep/"
-scp "$NEWTON/orr_noise_sweep/*.csv"  "$DEST/orr_noise_sweep/" 2>/dev/null || true
+echo "==> ORR noise sweep (noise only)"
+scp "$NEWTON/orr_noise_sweep/*gaussian_noise*.json" "$DEST/orr_noise_sweep/"
+scp "$NEWTON/orr_noise_sweep/*gaussian_noise*.csv"  "$DEST/orr_noise_sweep/" 2>/dev/null || true
+
+echo "==> ORR blur sweep (blur only)"
+scp "$NEWTON/orr_noise_sweep/*gaussian_blur*.json" "$DEST/orr_blur_sweep/"
+scp "$NEWTON/orr_noise_sweep/*gaussian_blur*.csv"  "$DEST/orr_blur_sweep/" 2>/dev/null || true
 
 echo "==> MSR-Align ORR"
 scp "$NEWTON/orr_base_msr/orr_results.json" "$DEST/orr/orr_base_msr.json"
