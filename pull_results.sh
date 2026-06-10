@@ -13,22 +13,25 @@ mkdir -p "$DEST/orr" "$DEST/orr_noise_sweep" \
          "$DEST/sqa_noise_sweep" "$DEST/sqa_blur_sweep" \
          "$DEST/figstep_noise_sweep" "$DEST/figstep_blur_sweep"
 
-echo "==> ORR noise+blur sweep (20 files)"
+echo "==> ORR noise+blur sweep (20 JSON + 20 CSV)"
 scp "$NEWTON/orr_noise_sweep/*.json" "$DEST/orr_noise_sweep/"
+scp "$NEWTON/orr_noise_sweep/*.csv"  "$DEST/orr_noise_sweep/" 2>/dev/null || true
 
 echo "==> MSR-Align ORR"
 scp "$NEWTON/orr_base_msr/orr_results.json" "$DEST/orr/orr_base_msr.json"
 
-echo "==> MSR-Align FigStep ASR"
-scp "$NEWTON/figstep_noise_sweep/asr_base_msr_clean.json" "$DEST/figstep_noise_sweep/"
+echo "==> MSR-Align FigStep ASR + CSV"
+scp "$NEWTON/figstep_noise_sweep/asr_base_msr_clean.json"       "$DEST/figstep_noise_sweep/"
+scp "$NEWTON/figstep_noise_sweep/responses_base_msr_clean.csv"  "$DEST/figstep_noise_sweep/" 2>/dev/null || true
 
 echo "==> MSR-Align SQA (raw + regex)"
 scp "$NEWTON/sqa_noise_sweep/raw_base_msr_clean.jsonl" "$DEST/sqa_noise_sweep/" 2>/dev/null || echo "  (not yet available)"
 scp "$NEWTON/sqa_noise_sweep/acc_base_msr_clean.json"  "$DEST/sqa_noise_sweep/" 2>/dev/null || echo "  (not yet available)"
 
-echo "==> SQA raw responses + regex acc (44 files)"
-scp "$NEWTON/sqa_noise_sweep/raw_*.jsonl" "$DEST/sqa_noise_sweep/"
-scp "$NEWTON/sqa_noise_sweep/acc_*.json"  "$DEST/sqa_noise_sweep/"
+echo "==> SQA raw responses + regex acc + CSV (66 files)"
+scp "$NEWTON/sqa_noise_sweep/raw_*.jsonl"       "$DEST/sqa_noise_sweep/"
+scp "$NEWTON/sqa_noise_sweep/acc_*.json"        "$DEST/sqa_noise_sweep/"
+scp "$NEWTON/sqa_noise_sweep/responses_*.csv"   "$DEST/sqa_noise_sweep/"
 
 echo "==> Sorting blur files into sqa_blur_sweep/"
 mv "$DEST"/sqa_noise_sweep/*blur* "$DEST/sqa_blur_sweep/" 2>/dev/null || true

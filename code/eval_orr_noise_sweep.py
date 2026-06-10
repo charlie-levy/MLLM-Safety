@@ -18,7 +18,7 @@ os.chdir(os.path.dirname(os.path.dirname(__file__)))
 from model_loader import load_model_and_processor
 from dataset_loader import load_xstest, load_mmsa
 from evaluator import Evaluator
-from metrics import compute_orr
+from metrics import compute_orr, save_results_csv
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--use_tis",    action="store_true", help="Load TIS LoRA adapter")
@@ -86,3 +86,7 @@ with open(out_file, "w") as f:
         "avg_orr_pct":   avg_orr_pct,
     }, f, indent=2)
 print("Saved: %s" % out_file)
+
+csv_file = os.path.join(out_dir, "responses_%s_%s.csv" % (model_tag, noise_label))
+save_results_csv(xstest_results + mmsa_results, csv_file)
+print("Saved: %s" % csv_file)

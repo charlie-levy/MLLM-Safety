@@ -14,7 +14,7 @@ os.chdir(os.path.dirname(os.path.dirname(__file__)))
 from model_loader import load_model_and_processor
 from dataset_loader import load_figstep
 from evaluator import Evaluator
-from metrics import compute_asr
+from metrics import compute_asr, save_results_csv
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--use_tis", action="store_true", help="Load TIS LoRA adapter")
@@ -65,3 +65,7 @@ with open(out_file, "w") as f:
         "n_total":      metrics["n_total"],
     }, f, indent=2)
 print("Saved: %s" % out_file)
+
+csv_file = os.path.join(out_dir, "responses_%s_clean.csv" % model_tag)
+save_results_csv(results, csv_file)
+print("Saved: %s" % csv_file)

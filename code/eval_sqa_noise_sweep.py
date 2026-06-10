@@ -20,7 +20,7 @@ os.chdir(os.path.dirname(os.path.dirname(__file__)))
 
 from model_loader import load_model_and_processor
 from evaluator import Evaluator
-from metrics import compute_accuracy
+from metrics import compute_accuracy, save_results_csv
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--use_tis", action="store_true", help="Load TIS adapter")
@@ -108,3 +108,7 @@ with open(acc_file, "w") as f:
         "total":      metrics["n_total"],
     }, f, indent=2)
 print("Saved regex accuracy: %s" % acc_file)
+
+csv_file = os.path.join(out_dir, "responses_%s.csv" % tag)
+save_results_csv(results, csv_file)
+print("Saved responses CSV: %s" % csv_file)

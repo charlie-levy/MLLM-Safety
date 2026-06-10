@@ -29,7 +29,7 @@ os.chdir(os.path.dirname(os.path.dirname(__file__)))
 from model_loader import load_model_and_processor
 from dataset_loader import load_xstest, load_mmsa
 from evaluator import Evaluator
-from metrics import compute_orr
+from metrics import compute_orr, save_results_csv
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--use_tis", action="store_true", help="Load TIS LoRA adapter")
@@ -135,3 +135,7 @@ out_file = os.path.join(out_dir, "orr_results.json")
 with open(out_file, "w") as f:
     json.dump(out, f, indent=2)
 print("\nSaved: %s" % out_file)
+
+save_results_csv(xstest_results, os.path.join(out_dir, "responses_xstest.csv"))
+save_results_csv(mmsa_results,   os.path.join(out_dir, "responses_mmsa.csv"))
+print("Saved: %s/responses_xstest.csv + responses_mmsa.csv" % out_dir)
