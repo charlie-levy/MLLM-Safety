@@ -1,0 +1,8 @@
+{
+  "model": "base",
+  "noise_type": "gaussian_noise",
+  "severity": 1,
+  "asr": 70.0,
+  "n_successful": 350,
+  "n_total": 500
+}

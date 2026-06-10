@@ -1,0 +1,9 @@
+{
+  "model": "base_tis",
+  "noise_type": "gaussian_noise",
+  "severity": 4,
+  "accuracy": 37.2,
+  "correct": 93,
+  "unknown": 139,
+  "total": 250
+}

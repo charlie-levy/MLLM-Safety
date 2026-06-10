@@ -1,0 +1,9 @@
+{
+  "model": "base",
+  "noise_type": "clean",
+  "severity": 0,
+  "accuracy": 82.4,
+  "correct": 206,
+  "unknown": 18,
+  "total": 250
+}

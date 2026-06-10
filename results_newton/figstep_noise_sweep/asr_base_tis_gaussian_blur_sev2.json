@@ -1,0 +1,9 @@
+{
+  "model": "base_tis",
+  "noise_type": "gaussian_blur",
+  "severity": 2,
+  "asr_pct": 28.4,
+  "n_successful": 142,
+  "n_refused": 358,
+  "n_total": 500
+}

@@ -1,0 +1,9 @@
+{
+  "model": "base",
+  "noise_type": "gaussian_noise",
+  "severity": 3,
+  "accuracy": 81.2,
+  "correct": 203,
+  "unknown": 22,
+  "total": 250
+}

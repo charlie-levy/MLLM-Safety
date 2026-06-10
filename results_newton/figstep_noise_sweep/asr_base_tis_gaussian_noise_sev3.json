@@ -1,0 +1,8 @@
+{
+  "model": "base_tis",
+  "noise_type": "gaussian_noise",
+  "severity": 3,
+  "asr": 22.8,
+  "n_successful": 114,
+  "n_total": 500
+}
