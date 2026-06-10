@@ -16,6 +16,10 @@ MODEL_ID = "Xkev/Llama-3.2V-11B-cot"
 # TIS (LoRA) adapter — load from local model_weights
 TIS_LORA_PATH = "/home/ch169788/llava_cot_eval/model_weights/llama_cot_tis"
 
+# MSR-Align (LoRA) adapter — Multimodal Safety Reasoning Alignment
+# (arXiv:2506.19257). Same base model and LoRA config (r=8, alpha=16) as TIS.
+MSR_LORA_PATH = "/home/ch169788/llava_cot_eval/model_weights/llama_cot_msr"
+
 # ── Model: R1-OneVision ────────────────────────────────────────────────────────
 # R1-OneVision is a Qwen2-VL-7B model trained with GRPO for visual reasoning.
 # It produces <think>…</think> chain-of-thought followed by a direct answer.

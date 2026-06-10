@@ -33,9 +33,15 @@ from metrics import compute_orr
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--use_tis", action="store_true", help="Load TIS LoRA adapter")
+parser.add_argument("--use_msr", action="store_true", help="Load MSR-Align LoRA adapter")
 args = parser.parse_args()
 
-model_tag = "base_tis" if args.use_tis else "base"
+if args.use_msr:
+    model_tag = "base_msr"
+elif args.use_tis:
+    model_tag = "base_tis"
+else:
+    model_tag = "base"
 
 print("=" * 80)
 print("  ORR Evaluation (XSTest + MMSA) | model=%s" % model_tag)
@@ -43,7 +49,7 @@ print("=" * 80)
 
 # ── Load model ────────────────────────────────────────────────────────────────
 print("\n[1/4] Loading model (%s)..." % model_tag)
-model, processor, _ = load_model_and_processor(use_tis=args.use_tis)
+model, processor, _ = load_model_and_processor(use_tis=args.use_tis, use_msr=args.use_msr)
 print("      OK: %s" % model_tag)
 
 evaluator = Evaluator(model, processor, corruption_type=None)
@@ -108,9 +114,11 @@ print("=" * 80)
 
 # Paper reference values (for easy comparison)
 if model_tag == "base":
-    print("\n  Paper (Base)  XSTest=24.8  MMSA=45.0  Avg=34.9")
+    print("\n  Paper (Base)     XSTest=24.8  MMSA=45.0  Avg=34.9  ASR=86.2")
+elif model_tag == "base_msr":
+    print("\n  Paper (MSR-Align) XSTest=57.6  MMSA=76.2  Avg=66.9  ASR=23.8")
 else:
-    print("\n  Paper (TIS)   XSTest=56.0  MMSA=86.2  Avg=71.1")
+    print("\n  Paper (TIS)      XSTest=56.0  MMSA=86.2  Avg=71.1  ASR=11.6")
 
 # ── Save results ──────────────────────────────────────────────────────────────
 out_dir = "results/orr_%s" % model_tag
