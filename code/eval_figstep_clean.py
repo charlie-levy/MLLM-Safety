@@ -17,11 +17,14 @@ from evaluator import Evaluator
 from metrics import compute_asr, save_results_csv
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--use_tis", action="store_true", help="Load TIS LoRA adapter")
-parser.add_argument("--use_msr", action="store_true", help="Load MSR-Align LoRA adapter")
+parser.add_argument("--use_tis",  action="store_true", help="Load TIS LoRA adapter")
+parser.add_argument("--use_msr",  action="store_true", help="Load MSR-Align LoRA adapter")
+parser.add_argument("--use_sage", action="store_true", help="Load SAGE LoRA adapter")
 args = parser.parse_args()
 
-if args.use_msr:
+if args.use_sage:
+    model_tag = "base_sage"
+elif args.use_msr:
     model_tag = "base_msr"
 elif args.use_tis:
     model_tag = "base_tis"
@@ -37,7 +40,7 @@ samples = load_figstep()
 print("      OK: %d samples" % len(samples))
 
 print("\n[2/3] Loading model (%s)..." % model_tag)
-model, processor, _ = load_model_and_processor(use_tis=args.use_tis, use_msr=args.use_msr)
+model, processor, _ = load_model_and_processor(use_tis=args.use_tis, use_msr=args.use_msr, use_sage=args.use_sage)
 print("      OK: %s" % model_tag)
 
 print("\n[3/3] Running inference (no corruption)...")

@@ -11,11 +11,13 @@ try:
     config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'config.py')
     config_dict = {}
     exec(open(config_path).read(), config_dict)
-    TIS_LORA_PATH = config_dict.get('TIS_LORA_PATH')
-    MSR_LORA_PATH = config_dict.get('MSR_LORA_PATH')
+    TIS_LORA_PATH  = config_dict.get('TIS_LORA_PATH')
+    MSR_LORA_PATH  = config_dict.get('MSR_LORA_PATH')
+    SAGE_LORA_PATH = config_dict.get('SAGE_LORA_PATH')
 except:
-    TIS_LORA_PATH = "/home/ch169788/llava_cot_eval/model_weights/llama_cot_tis"
-    MSR_LORA_PATH = "/home/ch169788/llava_cot_eval/model_weights/llama_cot_msr"
+    TIS_LORA_PATH  = "/home/ch169788/llava_cot_eval/model_weights/llama_cot_tis"
+    MSR_LORA_PATH  = "/home/ch169788/llava_cot_eval/model_weights/llama_cot_msr"
+    SAGE_LORA_PATH = "/home/ch169788/llava_cot_eval/model_weights/llama_cot_sage"
 
 
 def load_llama_cot(lora_path=None):
@@ -62,20 +64,21 @@ def load_r1onevision():
     return model, processor
 
 
-def load_model_and_processor(use_tis=False, use_msr=False, lora_path=None):
+def load_model_and_processor(use_tis=False, use_msr=False, use_sage=False, lora_path=None):
     """Load LLaVA-CoT model with an optional safety adapter.
 
     Args:
-        use_tis: If True, load TIS adapter from config.TIS_LORA_PATH
-        use_msr: If True, load MSR-Align adapter from config.MSR_LORA_PATH
-        lora_path: Explicit adapter path override (takes precedence over both flags)
+        use_tis:   If True, load TIS adapter from config.TIS_LORA_PATH
+        use_msr:   If True, load MSR-Align adapter from config.MSR_LORA_PATH
+        use_sage:  If True, load SAGE adapter from config.SAGE_LORA_PATH
+        lora_path: Explicit adapter path override (takes precedence over all flags)
 
     Returns:
-        (model, processor, model_tag) where model_tag is "base", "base+TIS",
-        or "base+MSR".
+        (model, processor, model_tag)
     """
-    if use_tis and use_msr:
-        raise ValueError("Cannot load both TIS and MSR adapters at once.")
+    n_adapters = sum([use_tis, use_msr, use_sage])
+    if n_adapters > 1:
+        raise ValueError("Cannot load more than one adapter at once.")
 
     if use_tis:
         adapter_path = lora_path or TIS_LORA_PATH
@@ -89,6 +92,12 @@ def load_model_and_processor(use_tis=False, use_msr=False, lora_path=None):
             raise ValueError("MSR requested but MSR_LORA_PATH not set in config.py")
         model, processor = load_llama_cot(lora_path=adapter_path)
         model_tag = "base+MSR"
+    elif use_sage:
+        adapter_path = lora_path or SAGE_LORA_PATH
+        if adapter_path is None:
+            raise ValueError("SAGE requested but SAGE_LORA_PATH not set in config.py")
+        model, processor = load_llama_cot(lora_path=adapter_path)
+        model_tag = "base+SAGE"
     elif lora_path:
         model, processor = load_llama_cot(lora_path=lora_path)
         model_tag = "base+adapter"
