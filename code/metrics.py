@@ -251,7 +251,8 @@ def save_results_csv(results: list[dict], out_path: str) -> None:
     """Save per-sample model outputs to CSV. Works for FigStep, ORR, and SQA evals."""
     fieldnames = [
         "dataset", "idx", "image_path", "category",
-        "prompt", "label", "conclusion",
+        "prompt", "label",
+        "conclusion", "full_response",
         "is_refusal", "is_over_refusal",
         "predicted_letter", "correct", "attack_success",
     ]
@@ -261,7 +262,7 @@ def save_results_csv(results: list[dict], out_path: str) -> None:
         for r in results:
             meta    = r.get("metadata", {})
             resp    = r.get("response", "")
-            conc    = (_extract_conclusion(resp) or resp[:300]).strip()
+            conc    = (_extract_conclusion(resp) or "").strip()
             refusal = is_refusal(resp)
             over_r  = is_mmsa_over_refusal(resp)
             pred    = extract_answer_letter(resp)
@@ -275,6 +276,7 @@ def save_results_csv(results: list[dict], out_path: str) -> None:
                 "prompt":           r.get("prompt", ""),
                 "label":            r.get("label", ""),
                 "conclusion":       conc,
+                "full_response":    resp,
                 "is_refusal":       refusal,
                 "is_over_refusal":  over_r,
                 "predicted_letter": pred or "",
