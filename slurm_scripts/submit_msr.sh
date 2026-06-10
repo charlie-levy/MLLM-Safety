@@ -31,3 +31,4 @@ $3
 
 submit "msr_orr"     "msr_orr"     "python code/eval_orr.py --use_msr"
 submit "msr_figstep" "msr_figstep" "python code/eval_figstep_clean.py --use_msr"
+submit "msr_sqa"     "msr_sqa"     "python code/eval_sqa_noise_sweep.py --use_msr --severity 0 --noise_type gaussian_noise"

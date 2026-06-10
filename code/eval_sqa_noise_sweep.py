@@ -24,13 +24,19 @@ from metrics import compute_accuracy
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--use_tis", action="store_true", help="Load TIS adapter")
+parser.add_argument("--use_msr", action="store_true", help="Load MSR-Align adapter")
 parser.add_argument("--severity", type=int, required=True, choices=[0,1,2,3,4,5],
                     help="0 = clean (no corruption)")
 parser.add_argument("--noise_type", type=str, default="gaussian_noise",
                     choices=["gaussian_noise", "gaussian_blur"])
 args = parser.parse_args()
 
-model_tag = "base_tis" if args.use_tis else "base"
+if args.use_msr:
+    model_tag = "base_msr"
+elif args.use_tis:
+    model_tag = "base_tis"
+else:
+    model_tag = "base"
 is_clean  = args.severity == 0
 
 # clean files are named with a "clean" tag and no severity suffix
@@ -59,7 +65,7 @@ for key in sorted(data.keys(), key=lambda x: int(x)):
 print("      OK: %d samples" % len(samples))
 
 print("\n[2/3] Loading model (%s)..." % model_tag)
-model, processor, _ = load_model_and_processor(use_tis=args.use_tis)
+model, processor, _ = load_model_and_processor(use_tis=args.use_tis, use_msr=args.use_msr)
 print("      OK: %s" % model_tag)
 
 print("\n[3/3] Running inference...")

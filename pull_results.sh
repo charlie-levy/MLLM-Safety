@@ -22,6 +22,10 @@ scp "$NEWTON/orr_base_msr/orr_results.json" "$DEST/orr/orr_base_msr.json"
 echo "==> MSR-Align FigStep ASR"
 scp "$NEWTON/figstep_noise_sweep/asr_base_msr_clean.json" "$DEST/figstep_noise_sweep/"
 
+echo "==> MSR-Align SQA (raw + regex)"
+scp "$NEWTON/sqa_noise_sweep/raw_base_msr_clean.jsonl" "$DEST/sqa_noise_sweep/" 2>/dev/null || echo "  (not yet available)"
+scp "$NEWTON/sqa_noise_sweep/acc_base_msr_clean.json"  "$DEST/sqa_noise_sweep/" 2>/dev/null || echo "  (not yet available)"
+
 echo "==> SQA raw responses + regex acc (44 files)"
 scp "$NEWTON/sqa_noise_sweep/raw_*.jsonl" "$DEST/sqa_noise_sweep/"
 scp "$NEWTON/sqa_noise_sweep/acc_*.json"  "$DEST/sqa_noise_sweep/"
