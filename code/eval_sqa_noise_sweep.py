@@ -1,8 +1,17 @@
 #!/usr/bin/env python
 """
 eval_sqa_noise_sweep.py
-ScienceQA accuracy sweep over noise/blur severity 1-5, for BASE and BASE+TIS.
-Results written to results/sqa_noise_sweep/acc_<model>_<noise>_sev<N>.json
+ScienceQA inference sweep over noise/blur severity 0-5, for BASE and BASE+TIS.
+
+Severity 0 = clean (no corruption).
+
+Saves BOTH:
+  - raw responses    -> results/sqa_noise_sweep/raw_<model>_<noise>_sev<N>.jsonl
+  - regex accuracy   -> results/sqa_noise_sweep/acc_<model>_<noise>_sev<N>.json
+
+The JSONL is the source of truth: a separate LLaMA-3 judge pass
+(code/judge_sqa_utility.py) reads it to compute the real utility score.
+The regex accuracy is kept only as a rough sanity reference.
 """
 import json, sys, os, argparse
 from PIL import Image
@@ -15,15 +24,24 @@ from metrics import compute_accuracy
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--use_tis", action="store_true", help="Load TIS adapter")
-parser.add_argument("--severity", type=int, required=True, choices=[1,2,3,4,5])
+parser.add_argument("--severity", type=int, required=True, choices=[0,1,2,3,4,5],
+                    help="0 = clean (no corruption)")
 parser.add_argument("--noise_type", type=str, default="gaussian_noise",
                     choices=["gaussian_noise", "gaussian_blur"])
 args = parser.parse_args()
 
 model_tag = "base_tis" if args.use_tis else "base"
+is_clean  = args.severity == 0
+
+# clean files are named with a "clean" tag and no severity suffix
+if is_clean:
+    tag = "%s_clean" % model_tag
+else:
+    tag = "%s_%s_sev%d" % (model_tag, args.noise_type, args.severity)
 
 print("=" * 80)
-print("  ScienceQA | model=%s | noise=%s | severity=%d" % (model_tag, args.noise_type, args.severity))
+print("  ScienceQA | model=%s | noise=%s | severity=%d%s" % (
+    model_tag, args.noise_type, args.severity, "  (CLEAN)" if is_clean else ""))
 print("=" * 80)
 
 print("\n[1/3] Loading ScienceQA...")
@@ -46,29 +64,41 @@ print("      OK: %s" % model_tag)
 
 print("\n[3/3] Running inference...")
 evaluator = Evaluator(model, processor,
-                      corruption_type=args.noise_type,
+                      corruption_type=None if is_clean else args.noise_type,
                       corruption_severity=args.severity)
 results = evaluator.run(samples)
 
-metrics = compute_accuracy(results)
-
-print("\n" + "=" * 80)
-print("SQA Accuracy (%s, %s sev=%d): %.2f%% (%d/%d, unknown=%d)" % (
-    model_tag, args.noise_type, args.severity,
-    metrics["accuracy"], metrics["n_correct"], metrics["n_total"], metrics["n_unknown"]))
-print("=" * 80)
-
+# ── Save raw responses (source of truth for LLM judge) ──────────────────────────
 out_dir = "results/sqa_noise_sweep"
 os.makedirs(out_dir, exist_ok=True)
-out_file = os.path.join(out_dir, "acc_%s_%s_sev%d.json" % (model_tag, args.noise_type, args.severity))
-with open(out_file, "w") as f:
+
+raw_file = os.path.join(out_dir, "raw_%s.jsonl" % tag)
+with open(raw_file, "w") as f:
+    for r in results:
+        f.write(json.dumps({
+            "idx":      r["metadata"].get("idx"),
+            "prompt":   r["prompt"],
+            "label":    r["label"],
+            "response": r["response"],
+        }) + "\n")
+print("Saved raw responses: %s" % raw_file)
+
+# ── Regex accuracy (rough reference only) ───────────────────────────────────────
+metrics = compute_accuracy(results)
+print("\n" + "=" * 80)
+print("Regex SQA Accuracy (%s): %.2f%% (%d/%d, unknown=%d)  [reference only]" % (
+    tag, metrics["accuracy"], metrics["n_correct"], metrics["n_total"], metrics["n_unknown"]))
+print("=" * 80)
+
+acc_file = os.path.join(out_dir, "acc_%s.json" % tag)
+with open(acc_file, "w") as f:
     json.dump({
         "model":      model_tag,
-        "noise_type": args.noise_type,
+        "noise_type": "clean" if is_clean else args.noise_type,
         "severity":   args.severity,
         "accuracy":   metrics["accuracy"],
         "correct":    metrics["n_correct"],
         "unknown":    metrics["n_unknown"],
         "total":      metrics["n_total"],
     }, f, indent=2)
-print("Saved: %s" % out_file)
+print("Saved regex accuracy: %s" % acc_file)
