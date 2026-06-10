@@ -106,6 +106,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("files", nargs="*", help="raw_*.jsonl files to judge")
     ap.add_argument("--dir", help="judge every raw_*.jsonl in this directory")
+    ap.add_argument("--skip-existing", action="store_true",
+                    help="skip files whose judged_*.json already exists")
     args = ap.parse_args()
 
     paths = list(args.files)
@@ -113,6 +115,21 @@ def main():
         paths += sorted(glob.glob(os.path.join(args.dir, "raw_*.jsonl")))
     if not paths:
         sys.exit("No input. Pass raw_*.jsonl files or --dir <folder>.")
+
+    if args.skip_existing:
+        skipped = []
+        remaining = []
+        for p in paths:
+            tag = os.path.basename(p).replace("raw_", "").replace(".jsonl", "")
+            out = os.path.join(os.path.dirname(p), "judged_%s.json" % tag)
+            if os.path.exists(out):
+                skipped.append(os.path.basename(p))
+            else:
+                remaining.append(p)
+        if skipped:
+            print("Skipping %d already-judged file(s): %s\n" % (
+                len(skipped), ", ".join(skipped)))
+        paths = remaining
 
     print("Judging %d file(s) with %s ...\n" % (len(paths), MODEL))
     for p in paths:
