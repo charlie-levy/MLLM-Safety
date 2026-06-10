@@ -175,26 +175,47 @@ def compute_asr(responses: list[dict]) -> dict:
     }
 
 
+_THINK_BLOCK_RE = re.compile(r"<think>(.*?)</think>", re.DOTALL | re.IGNORECASE)
+
 def extract_answer_letter(response: str) -> str | None:
     """
     Extract the model's multiple-choice answer letter (A/B/C/D) from a response.
 
     Checks the <CONCLUSION> block first (LLaVA-CoT), then text after </think>
-    (R1-OneVision), then falls back to searching the full response.
+    (R1-OneVision), then the inside of the <think> block (TIS sometimes puts
+    the final choice there when no CONCLUSION tag is emitted), then falls back
+    to the full response.
     """
-    text = _extract_conclusion(response) or response
-
-    # Try most specific patterns first
     patterns = [
         r"\(([A-D])\)",              # (C) — explicit choice bracket
         r"answer[^A-D]{0,20}([A-D])\b",  # "answer is C", "answer: B"
         r"^([A-D])[.):\s]",          # C. or C) or C: at start of text
         r"^([A-D])$",                # bare letter on its own line
     ]
-    for pat in patterns:
-        m = re.search(pat, text, re.IGNORECASE | re.MULTILINE)
-        if m:
-            return m.group(1).upper()
+
+    def _search(text: str) -> str | None:
+        for pat in patterns:
+            m = re.search(pat, text, re.IGNORECASE | re.MULTILINE)
+            if m:
+                return m.group(1).upper()
+        return None
+
+    # 1. CONCLUSION block (LLaVA-CoT standard format)
+    conclusion = _extract_conclusion(response)
+    if conclusion:
+        result = _search(conclusion)
+        if result:
+            return result
+
+    # 2. Inside <think> block (TIS sometimes omits CONCLUSION and puts answer here)
+    think_match = _THINK_BLOCK_RE.search(response)
+    if think_match:
+        result = _search(think_match.group(1))
+        if result:
+            return result
+
+    # 3. Full response fallback
+    return _search(response)
     return None
 
 
