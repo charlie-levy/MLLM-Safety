@@ -11,7 +11,7 @@ for TIS in "" "--use_tis"; do
 
   sbatch --job-name="figstep_clean_${TAG}" \
          --partition=normal \
-         --gres=gpu:tesla_v100-pcie-32gb:1 \
+         --gres=gpu:nvidia_h100_pcie:1 \
          --mem=64G \
          --time=4:00:00 \
          --output="logs/figstep_clean_${TAG}.log" \
@@ -27,7 +27,7 @@ python code/eval_figstep_clean.py $TIS
 
   sbatch --job-name="sqa_clean_${TAG}" \
          --partition=normal \
-         --gres=gpu:tesla_v100-pcie-32gb:1 \
+         --gres=gpu:nvidia_h100_pcie:1 \
          --mem=64G \
          --time=2:00:00 \
          --output="logs/sqa_clean_${TAG}.log" \

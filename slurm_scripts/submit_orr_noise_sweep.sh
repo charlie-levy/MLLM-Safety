@@ -21,7 +21,7 @@ for NOISE in gaussian_noise gaussian_blur; do
     # BASE model
     sbatch --job-name="orr_base_${NOISE:0:5}_s${SEV}" \
            --partition=normal \
-           --gres=gpu:tesla_v100-pcie-32gb:1 \
+           --gres=gpu:nvidia_h100_pcie:1 \
            --mem=64G \
            --time=5:00:00 \
            --output="logs/orr_base_${NOISE}_sev${SEV}.log" \
@@ -31,7 +31,7 @@ for NOISE in gaussian_noise gaussian_blur; do
     # BASE + TIS
     sbatch --job-name="orr_tis_${NOISE:0:5}_s${SEV}" \
            --partition=normal \
-           --gres=gpu:tesla_v100-pcie-32gb:1 \
+           --gres=gpu:nvidia_h100_pcie:1 \
            --mem=64G \
            --time=5:00:00 \
            --output="logs/orr_tis_${NOISE}_sev${SEV}.log" \

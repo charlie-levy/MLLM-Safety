@@ -17,7 +17,7 @@ cd /home/ch169788/llava_cot_eval
 # ── ORR (XSTest + MMSA, clean) ─────────────────────────────────────────────
 sbatch --job-name="r1_orr" \
        --partition=normal \
-       --gres=gpu:tesla_v100-pcie-32gb:1 \
+       --gres=gpu:nvidia_h100_pcie:1 \
        --mem=64G \
        --time=6:00:00 \
        --output="logs/r1_orr.log" \
@@ -27,7 +27,7 @@ echo "Submitted: r1_orr"
 # ── FigStep clean baseline ──────────────────────────────────────────────────
 sbatch --job-name="r1_figstep_clean" \
        --partition=normal \
-       --gres=gpu:tesla_v100-pcie-32gb:1 \
+       --gres=gpu:nvidia_h100_pcie:1 \
        --mem=64G \
        --time=4:00:00 \
        --output="logs/r1_figstep_clean.log" \
@@ -37,7 +37,7 @@ echo "Submitted: r1_figstep_clean"
 # ── SQA clean baseline ──────────────────────────────────────────────────────
 sbatch --job-name="r1_sqa_clean" \
        --partition=normal \
-       --gres=gpu:tesla_v100-pcie-32gb:1 \
+       --gres=gpu:nvidia_h100_pcie:1 \
        --mem=64G \
        --time=2:00:00 \
        --output="logs/r1_sqa_clean.log" \
@@ -48,7 +48,7 @@ echo "Submitted: r1_sqa_clean"
 for SEV in 1 2 3 4 5; do
   sbatch --job-name="r1_fig_n_sev${SEV}" \
          --partition=normal \
-         --gres=gpu:tesla_v100-pcie-32gb:1 \
+         --gres=gpu:nvidia_h100_pcie:1 \
          --mem=64G \
          --time=4:00:00 \
          --output="logs/r1_figstep_noise_sev${SEV}.log" \
@@ -57,7 +57,7 @@ for SEV in 1 2 3 4 5; do
 
   sbatch --job-name="r1_fig_b_sev${SEV}" \
          --partition=normal \
-         --gres=gpu:tesla_v100-pcie-32gb:1 \
+         --gres=gpu:nvidia_h100_pcie:1 \
          --mem=64G \
          --time=4:00:00 \
          --output="logs/r1_figstep_blur_sev${SEV}.log" \
@@ -66,7 +66,7 @@ for SEV in 1 2 3 4 5; do
 
   sbatch --job-name="r1_sqa_n_sev${SEV}" \
          --partition=normal \
-         --gres=gpu:tesla_v100-pcie-32gb:1 \
+         --gres=gpu:nvidia_h100_pcie:1 \
          --mem=64G \
          --time=2:00:00 \
          --output="logs/r1_sqa_noise_sev${SEV}.log" \
@@ -75,7 +75,7 @@ for SEV in 1 2 3 4 5; do
 
   sbatch --job-name="r1_sqa_b_sev${SEV}" \
          --partition=normal \
-         --gres=gpu:tesla_v100-pcie-32gb:1 \
+         --gres=gpu:nvidia_h100_pcie:1 \
          --mem=64G \
          --time=2:00:00 \
          --output="logs/r1_sqa_blur_sev${SEV}.log" \

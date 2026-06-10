@@ -12,7 +12,7 @@ for SEV in 1 2 3 4 5; do
 
     sbatch --job-name="$JOB" \
            --partition=normal \
-           --gres=gpu:tesla_v100-pcie-32gb:1 \
+           --gres=gpu:nvidia_h100_pcie:1 \
            --mem=64G \
            --time=4:00:00 \
            --output="$LOG" \

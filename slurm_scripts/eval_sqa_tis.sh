@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=sqa_tis
 #SBATCH --partition=normal
-#SBATCH --gres=gpu:tesla_v100-pcie-32gb:1
+#SBATCH --gres=gpu:nvidia_h100_pcie:1
 #SBATCH --mem=64G
 #SBATCH --time=2:00:00
 #SBATCH --output=sqa_tis.log
