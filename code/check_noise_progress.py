@@ -13,17 +13,18 @@ import os
 
 R = "results"
 
-# metric -> (folder, filename_template). {tag} and {s} get filled in.
-SPECS = {
-    "ASR": ("figstep_noise_sweep", "asr_{tag}_gaussian_noise_sev{s}.json"),
-    "ORR": ("orr_noise_sweep",     "orr_{tag}_gaussian_noise_sev{s}.json"),
-    "SQA": ("sqa_noise_sweep",     "raw_{tag}_gaussian_noise_sev{s}.jsonl"),
+# metric -> full relative path template (Newton layout). {tag} and {s} filled in.
+SEV = {
+    "ASR": "figstep_noise_sweep/asr_{tag}_gaussian_noise_sev{s}.json",
+    "ORR": "orr_noise_sweep/orr_{tag}_gaussian_noise_sev{s}.json",
+    "SQA": "sqa_noise_sweep/raw_{tag}_gaussian_noise_sev{s}.jsonl",
 }
-# clean-baseline files (severity 0)
+# clean-baseline files (severity 0). NOTE: on Newton clean ORR lives in a
+# per-model subdir (orr_<tag>/orr_results.json), not orr/orr_<tag>.json.
 CLEAN = {
-    "ASR": ("figstep_noise_sweep", "asr_{tag}_clean.json"),
-    "ORR": ("orr",                 "orr_{tag}.json"),
-    "SQA": ("sqa_noise_sweep",     "raw_{tag}_clean.jsonl"),
+    "ASR": "figstep_noise_sweep/asr_{tag}_clean.json",
+    "ORR": "orr_{tag}/orr_results.json",
+    "SQA": "sqa_noise_sweep/raw_{tag}_clean.jsonl",
 }
 
 MODELS = [("base_tis", "TIS"), ("base_sage", "SAGE"), ("base_msr", "MSR")]
@@ -32,13 +33,13 @@ total_missing = 0
 for tag, name in MODELS:
     missing = []
     # clean
-    for metric, (folder, tmpl) in CLEAN.items():
-        if not os.path.exists(os.path.join(R, folder, tmpl.format(tag=tag))):
+    for metric, tmpl in CLEAN.items():
+        if not os.path.exists(os.path.join(R, tmpl.format(tag=tag))):
             missing.append(f"{metric} clean")
     # severities 1-5
     for s in range(1, 6):
-        for metric, (folder, tmpl) in SPECS.items():
-            if not os.path.exists(os.path.join(R, folder, tmpl.format(tag=tag, s=s))):
+        for metric, tmpl in SEV.items():
+            if not os.path.exists(os.path.join(R, tmpl.format(tag=tag, s=s))):
                 missing.append(f"{metric} sev{s}")
 
     total_missing += len(missing)
