@@ -21,11 +21,19 @@ echo "==> ORR blur sweep (blur only)"
 scp "$NEWTON/orr_noise_sweep/*gaussian_blur*.json" "$DEST/orr_blur_sweep/"
 scp "$NEWTON/orr_noise_sweep/*gaussian_blur*.csv"  "$DEST/orr_blur_sweep/" 2>/dev/null || true
 
+echo "==> SAGE ORR"
+scp "$NEWTON/orr_base_sage/orr_results.json" "$DEST/orr/orr_base_sage.json" 2>/dev/null || echo "  (not yet available)"
+
+echo "==> SAGE FigStep ASR + CSV (clean + noise sweep)"
+scp "$NEWTON/figstep_noise_sweep/asr_base_sage_clean.json"              "$DEST/figstep_noise_sweep/" 2>/dev/null || echo "  (not yet available)"
+scp "$NEWTON/figstep_noise_sweep/asr_base_sage_gaussian_noise_sev*.json" "$DEST/figstep_noise_sweep/" 2>/dev/null || true
+scp "$NEWTON/figstep_noise_sweep/responses_base_sage_clean.csv"         "$DEST/figstep_noise_sweep/" 2>/dev/null || true
+
 echo "==> MSR-Align ORR"
-scp "$NEWTON/orr_base_msr/orr_results.json" "$DEST/orr/orr_base_msr.json"
+scp "$NEWTON/orr_base_msr/orr_results.json" "$DEST/orr/orr_base_msr.json" 2>/dev/null || echo "  (not yet available)"
 
 echo "==> MSR-Align FigStep ASR + CSV"
-scp "$NEWTON/figstep_noise_sweep/asr_base_msr_clean.json"       "$DEST/figstep_noise_sweep/"
+scp "$NEWTON/figstep_noise_sweep/asr_base_msr_clean.json"       "$DEST/figstep_noise_sweep/" 2>/dev/null || echo "  (not yet available)"
 scp "$NEWTON/figstep_noise_sweep/responses_base_msr_clean.csv"  "$DEST/figstep_noise_sweep/" 2>/dev/null || true
 
 echo "==> MSR-Align SQA (raw + regex)"
