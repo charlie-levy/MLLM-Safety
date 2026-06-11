@@ -118,7 +118,7 @@ for model_tag, model_name in [("base", "Base LLaVA-CoT"), ("base_tis", "TIS (Thi
 for model_tag, model_name in [("base", "Base LLaVA-CoT"), ("base_tis", "TIS (Think-in-Safety)")]:
     short = model_tag.upper().replace("BASE_", "").replace("BASE", "BASE")
     for sev in [1, 2, 3, 4, 5]:
-        asr_d = load(os.path.join(BASE, "figstep_noise_sweep", f"asr_{model_tag}_gaussian_blur_sev{sev}.json"))
+        asr_d = load(os.path.join(BASE, "figstep_blur_sweep", f"asr_{model_tag}_gaussian_blur_sev{sev}.json"))
         orr_d = load(os.path.join(BASE, "orr_blur_sweep", f"orr_{model_tag}_gaussian_blur_sev{sev}.json"))
         x, m, a = orr_row(orr_d)
         tag = f"{model_tag}_gaussian_blur_sev{sev}"

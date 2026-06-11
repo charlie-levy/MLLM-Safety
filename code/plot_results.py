@@ -32,6 +32,8 @@ COLORS = {
 }
 
 def load(path):
+    if not os.path.exists(path):
+        return None
     with open(path) as f:
         return json.load(f)
 
@@ -47,22 +49,33 @@ def plot_asr_noise():
     fig, ax = plt.subplots(figsize=(7, 4.5))
 
     for model, label, color in [
-        ("base",     "Base",      COLORS["base"]),
+        ("base",     "Base",       COLORS["base"]),
         ("base_tis", "Base + TIS", COLORS["tis"]),
-        ("base_sage","Base + SAGE",COLORS["sage"]),
+        ("base_sage","Base + SAGE", COLORS["sage"]),
     ]:
-        sevs, asrs = [0], []
-        # clean
-        p = f"{BASE}/figstep_noise_sweep/asr_{model}_clean.json"
-        if not os.path.exists(p):
+        clean_p = f"{BASE}/figstep_noise_sweep/asr_{model}_clean.json"
+        if not os.path.exists(clean_p):
             continue
-        asrs.append(get_asr(load(p)))
+        clean_val = get_asr(load(clean_p))
+
+        sevs, asrs = [0], [clean_val]
         for s in [1, 2, 3, 4, 5]:
             p = f"{BASE}/figstep_noise_sweep/asr_{model}_gaussian_noise_sev{s}.json"
             if os.path.exists(p):
                 sevs.append(s)
                 asrs.append(get_asr(load(p)))
-        ax.plot(sevs, asrs, marker="o", label=label, color=color, linewidth=2, markersize=6)
+
+        has_sweep = len(sevs) > 1
+        if has_sweep:
+            ax.plot(sevs, asrs, marker="o", label=label, color=color,
+                    linewidth=2, markersize=6)
+        else:
+            # Only clean available — draw dashed reference line + annotate
+            ax.axhline(clean_val, color=color, linewidth=1.5, linestyle="--",
+                       label=f"{label} (clean only)", alpha=0.8)
+            ax.plot(0, clean_val, marker="o", color=color, markersize=7, zorder=5)
+            ax.annotate(f"{clean_val:.1f}%", xy=(0, clean_val),
+                        xytext=(0.2, clean_val + 3), color=color, fontsize=9)
 
     ax.set_xlabel("Gaussian Noise Severity (0 = clean)")
     ax.set_ylabel("FigStep ASR (%)")
@@ -184,8 +197,69 @@ def plot_model_comparison():
     plt.close(fig)
 
 
+# ── 4. ASR vs SQA Utility scatter ────────────────────────────────────────────
+
+def plot_asr_vs_utility():
+    fig, ax = plt.subplots(figsize=(8, 5.5))
+
+    # shared clean point (same for both noise and blur)
+    clean_asr_d = load(f"{BASE}/figstep_noise_sweep/asr_base_clean.json")
+    clean_sqa_d = load(f"{BASE}/sqa_noise_sweep/judged_base_clean.json")
+
+    configs = [
+        ("base", "gaussian_noise", "figstep_noise_sweep", "sqa_noise_sweep",
+         "Base + Noise", COLORS["base"], "o", "#4C72B0"),
+        ("base", "gaussian_blur",  "figstep_blur_sweep",  "sqa_blur_sweep",
+         "Base + Blur",  "#E05050",     "s", "#E05050"),
+    ]
+
+    last_sc = None
+    for model, noise, fig_folder, sqa_folder, label, color, marker, ec in configs:
+        pts = []
+        for sev in [1, 2, 3, 4, 5]:
+            asr_d = load(f"{BASE}/{fig_folder}/asr_{model}_{noise}_sev{sev}.json")
+            sqa_d = load(f"{BASE}/{sqa_folder}/judged_{model}_{noise}_sev{sev}.json")
+            if asr_d and sqa_d:
+                pts.append((sqa_d["accuracy"], get_asr(asr_d), sev))
+        if not pts:
+            continue
+        # prepend clean
+        if clean_asr_d and clean_sqa_d:
+            pts = [(clean_sqa_d["accuracy"], get_asr(clean_asr_d), 0)] + pts
+        utils, asrs, sevs = zip(*pts)
+        last_sc = ax.scatter(utils, asrs, c=sevs, cmap="YlOrRd", vmin=0, vmax=5,
+                             marker=marker, s=100, label=label,
+                             edgecolors=ec, linewidths=1.8, zorder=3)
+        ax.plot(utils, asrs, color=color, linewidth=1.2, alpha=0.5, zorder=2)
+        for u, a, s in pts:
+            lbl = "clean" if s == 0 else str(s)
+            ax.annotate(lbl, (u, a), textcoords="offset points",
+                        xytext=(5, 4), fontsize=8, color=color)
+
+    if last_sc:
+        cb = fig.colorbar(last_sc, ax=ax, label="Severity (0 = clean)")
+        cb.set_ticks([0, 1, 2, 3, 4, 5])
+
+    ax.set_xlabel("SQA Utility — Judged Accuracy (%)", labelpad=8)
+    ax.set_ylabel("FigStep ASR (%)")
+    ax.set_title("Safety–Utility Trade-off Under Image Corruption\n(Base LLaVA-CoT)")
+    ax.set_xlim(88, 97)
+    ax.set_ylim(58, 76)
+    ax.xaxis.set_major_locator(mticker.MultipleLocator(2))
+    ax.xaxis.set_major_formatter(mticker.FormatStrFormatter("%.0f%%"))
+    ax.yaxis.set_major_formatter(mticker.PercentFormatter(xmax=100, decimals=0))
+    ax.legend(loc="upper right")
+    ax.grid(True, linestyle="--", alpha=0.4)
+    fig.tight_layout()
+    out = os.path.join(PLOTS, "asr_vs_utility.png")
+    fig.savefig(out, bbox_inches="tight")
+    print("Saved:", out)
+    plt.close(fig)
+
+
 if __name__ == "__main__":
     plot_asr_noise()
     plot_orr_sweep()
     plot_model_comparison()
+    plot_asr_vs_utility()
     print("\nAll plots saved to", PLOTS)
