@@ -90,7 +90,7 @@ for model_tag, model_name, exp_prefix in [
     })
 
 # ── Noise sweep ───────────────────────────────────────────────────────────────
-for model_tag, model_name in [("base", "Base LLaVA-CoT"), ("base_tis", "TIS (Think-in-Safety)"), ("base_sage", "SAGE")]:
+for model_tag, model_name in [("base", "Base LLaVA-CoT"), ("base_tis", "TIS (Think-in-Safety)"), ("base_sage", "SAGE"), ("base_msr", "MSR-Align")]:
     short = model_tag.upper().replace("BASE_", "").replace("BASE", "BASE")
     for sev in [1, 2, 3, 4, 5]:
         asr_d = load(os.path.join(BASE, "figstep_noise_sweep", f"asr_{model_tag}_gaussian_noise_sev{sev}.json"))
@@ -115,7 +115,7 @@ for model_tag, model_name in [("base", "Base LLaVA-CoT"), ("base_tis", "TIS (Thi
         })
 
 # ── Blur sweep ────────────────────────────────────────────────────────────────
-for model_tag, model_name in [("base", "Base LLaVA-CoT"), ("base_tis", "TIS (Think-in-Safety)")]:
+for model_tag, model_name in [("base", "Base LLaVA-CoT"), ("base_tis", "TIS (Think-in-Safety)"), ("base_sage", "SAGE"), ("base_msr", "MSR-Align")]:
     short = model_tag.upper().replace("BASE_", "").replace("BASE", "BASE")
     for sev in [1, 2, 3, 4, 5]:
         asr_d = load(os.path.join(BASE, "figstep_blur_sweep", f"asr_{model_tag}_gaussian_blur_sev{sev}.json"))
