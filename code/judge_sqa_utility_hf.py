@@ -26,7 +26,7 @@ import json, os, sys, glob, argparse
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-DEFAULT_MODEL = "meta-llama/Meta-Llama-3-8B-Instruct"
+DEFAULT_MODEL = "NousResearch/Meta-Llama-3-8B-Instruct"  # ungated mirror, identical weights to Ollama llama3
 
 JUDGE_TEMPLATE = """You are grading a multiple-choice science exam.
 

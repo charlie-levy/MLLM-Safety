@@ -20,6 +20,8 @@ source /apps/anaconda/anaconda-2024.10/etc/profile.d/conda.sh
 conda activate REU
 export PYTHONPATH=/home/ch169788/llava_cot_eval/code:\$PYTHONPATH
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+export HF_HUB_DISABLE_XET=1
+export HF_HUB_ENABLE_HF_TRANSFER=0
 cd /home/ch169788/llava_cot_eval
 python code/judge_sqa_utility_hf.py --dir results/sqa_noise_sweep --skip-existing
 python code/judge_sqa_utility_hf.py --dir results/sqa_blur_sweep  --skip-existing
