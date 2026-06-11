@@ -64,12 +64,14 @@ class Judge:
         prompt = JUDGE_TEMPLATE.format(
             question=question, label=label, response=response.strip()[:4000])
         msgs = [{"role": "user", "content": prompt}]
-        ids = self.tok.apply_chat_template(
-            msgs, add_generation_prompt=True, return_tensors="pt").to(self.model.device)
+        enc = self.tok.apply_chat_template(
+            msgs, add_generation_prompt=True, return_tensors="pt", return_dict=True)
+        enc = {k: v.to(self.model.device) for k, v in enc.items()}
+        input_len = enc["input_ids"].shape[1]
         out = self.model.generate(
-            ids, max_new_tokens=8, do_sample=False,
+            **enc, max_new_tokens=8, do_sample=False,
             pad_token_id=self.tok.eos_token_id)
-        text = self.tok.decode(out[0, ids.shape[1]:], skip_special_tokens=True).upper()
+        text = self.tok.decode(out[0, input_len:], skip_special_tokens=True).upper()
         if "INCORRECT" in text:
             return False
         if "CORRECT" in text:
@@ -126,6 +128,11 @@ def main():
     if args.dir:
         paths += sorted(glob.glob(os.path.join(args.dir, "raw_*.jsonl")))
     if not paths:
+        # Soft exit when a --dir was given but is empty (e.g. on Newton all raw
+        # files live in sqa_noise_sweep/; sqa_blur_sweep/ may not exist there).
+        if args.dir:
+            print("No raw_*.jsonl in %s — nothing to do." % args.dir)
+            return
         sys.exit("No input. Pass raw_*.jsonl files or --dir <folder>.")
 
     if args.skip_existing:
