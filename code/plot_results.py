@@ -304,9 +304,73 @@ def plot_asr_vs_utility():
     )
 
 
+# ── 5. Per-model: all three metrics vs noise severity (one fig per model) ─────
+
+def _series_noise(tag):
+    """Return {metric: ([sevs], [vals])} for ASR, ORR, SQA under gaussian noise.
+    Severity 0 = clean. Only severities with a result file are included."""
+    asr, orr, sqa = ([], []), ([], []), ([], [])
+
+    # clean (severity 0)
+    c_asr = load(f"{BASE}/figstep_noise_sweep/asr_{tag}_clean.json")
+    c_orr = load(f"{BASE}/orr/orr_{tag}.json")
+    c_sqa = load(f"{BASE}/sqa_noise_sweep/judged_{tag}_clean.json")
+    if c_asr: asr[0].append(0); asr[1].append(get_asr(c_asr))
+    if c_orr: orr[0].append(0); orr[1].append(c_orr["avg_orr_pct"])
+    if c_sqa: sqa[0].append(0); sqa[1].append(c_sqa["accuracy"])
+
+    for s in [1, 2, 3, 4, 5]:
+        a = load(f"{BASE}/figstep_noise_sweep/asr_{tag}_gaussian_noise_sev{s}.json")
+        o = load(f"{BASE}/orr_noise_sweep/orr_{tag}_gaussian_noise_sev{s}.json")
+        q = load(f"{BASE}/sqa_noise_sweep/judged_{tag}_gaussian_noise_sev{s}.json")
+        if a: asr[0].append(s); asr[1].append(get_asr(a))
+        if o: orr[0].append(s); orr[1].append(o["avg_orr_pct"])
+        if q: sqa[0].append(s); sqa[1].append(q["accuracy"])
+
+    return {"ASR": asr, "ORR": orr, "SQA": sqa}
+
+
+def plot_per_model_noise():
+    """One figure per model: ASR, ORR and SQA utility as three lines vs gaussian
+    noise severity (0-5), on a shared 0-100% axis (all three are percentages)."""
+    metric_style = {
+        "ASR": ("FigStep ASR",   "#C44E52", "o"),
+        "ORR": ("Avg ORR",       "#4C72B0", "s"),
+        "SQA": ("SQA Utility",   "#55A868", "^"),
+    }
+    for tag, name in [("base_tis", "Base + TIS"),
+                      ("base_sage", "Base + SAGE"), ("base_msr", "Base + MSR")]:
+        series = _series_noise(tag)
+        if not any(series[m][0] for m in series):
+            print("Skipping per-model noise plot for %s (no data yet)" % name)
+            continue
+
+        fig, ax = plt.subplots(figsize=(7, 4.5))
+        for metric, (label, color, marker) in metric_style.items():
+            sevs, vals = series[metric]
+            if sevs:
+                ax.plot(sevs, vals, color=color, marker=marker, linewidth=2,
+                        markersize=7, label=label)
+
+        ax.set_xlabel("Gaussian Noise Severity (0 = clean)")
+        ax.set_ylabel("Rate / Accuracy (%)")
+        ax.set_title("%s — Metrics vs. Gaussian Noise Severity" % name)
+        ax.set_xticks([0, 1, 2, 3, 4, 5])
+        ax.set_ylim(0, 100)
+        ax.yaxis.set_major_formatter(mticker.PercentFormatter(xmax=100, decimals=0))
+        ax.legend(loc="center right")
+        ax.grid(True, linestyle="--", alpha=0.4)
+        fig.tight_layout()
+        out = os.path.join(PLOTS, "per_model_noise_%s.png" % tag)
+        fig.savefig(out, bbox_inches="tight")
+        print("Saved:", out)
+        plt.close(fig)
+
+
 if __name__ == "__main__":
     plot_asr_noise()
     plot_orr_sweep()
     plot_model_comparison()
     plot_asr_vs_utility()
+    plot_per_model_noise()
     print("\nAll plots saved to", PLOTS)
