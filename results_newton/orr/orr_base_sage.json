@@ -1,0 +1,32 @@
+{
+  "model": "base_sage",
+  "xstest": {
+    "orr": 0.36,
+    "orr_pct": 36.0,
+    "n_total": 250,
+    "n_refused": 90,
+    "n_answered": 160
+  },
+  "mmsa_combined": {
+    "orr": 0.6495,
+    "orr_pct": 64.95,
+    "n_total": 428,
+    "n_refused": 278,
+    "n_answered": 150
+  },
+  "avg_orr_pct": 50.5,
+  "mmsa_low": {
+    "orr": 0.6719,
+    "orr_pct": 67.19,
+    "n_total": 128,
+    "n_refused": 86,
+    "n_answered": 42
+  },
+  "mmsa_high": {
+    "orr": 0.64,
+    "orr_pct": 64.0,
+    "n_total": 300,
+    "n_refused": 192,
+    "n_answered": 108
+  }
+}

@@ -4,6 +4,6 @@
   "severity": 2,
   "accuracy": 83.6,
   "correct": 209,
-  "unknown": 15,
+  "unknown": 12,
   "total": 250
 }

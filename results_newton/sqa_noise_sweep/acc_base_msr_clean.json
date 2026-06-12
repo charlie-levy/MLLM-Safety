@@ -1,0 +1,9 @@
+{
+  "model": "base_msr",
+  "noise_type": "clean",
+  "severity": 0,
+  "accuracy": 68.0,
+  "correct": 170,
+  "unknown": 33,
+  "total": 250
+}

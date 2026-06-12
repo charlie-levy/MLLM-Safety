@@ -1,0 +1,9 @@
+{
+  "model": "base_sage",
+  "noise_type": "clean",
+  "severity": 0,
+  "accuracy": 85.2,
+  "correct": 213,
+  "unknown": 15,
+  "total": 250
+}

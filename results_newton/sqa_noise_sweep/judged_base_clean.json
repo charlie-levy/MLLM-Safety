@@ -1,15 +1,15 @@
 {
   "tag": "base_clean",
-  "judge": "llama3:latest",
-  "accuracy": 93.6,
-  "correct": 234,
+  "judge": "NousResearch/Meta-Llama-3-8B-Instruct",
+  "accuracy": 90.8,
+  "correct": 227,
   "total": 250,
   "unparsed": 0,
   "verdicts": [
     {
       "idx": 0,
       "label": "B",
-      "correct": true
+      "correct": false
     },
     {
       "idx": 1,
@@ -114,7 +114,7 @@
     {
       "idx": 21,
       "label": "C",
-      "correct": true
+      "correct": false
     },
     {
       "idx": 22,
@@ -434,7 +434,7 @@
     {
       "idx": 85,
       "label": "B",
-      "correct": true
+      "correct": false
     },
     {
       "idx": 86,
@@ -619,7 +619,7 @@
     {
       "idx": 122,
       "label": "B",
-      "correct": true
+      "correct": false
     },
     {
       "idx": 123,
@@ -734,7 +734,7 @@
     {
       "idx": 145,
       "label": "A",
-      "correct": true
+      "correct": false
     },
     {
       "idx": 146,
@@ -1029,7 +1029,7 @@
     {
       "idx": 204,
       "label": "B",
-      "correct": true
+      "correct": false
     },
     {
       "idx": 205,
@@ -1144,7 +1144,7 @@
     {
       "idx": 227,
       "label": "B",
-      "correct": true
+      "correct": false
     },
     {
       "idx": 228,

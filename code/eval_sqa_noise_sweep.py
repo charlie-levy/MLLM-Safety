@@ -32,6 +32,8 @@ parser.add_argument("--noise_type", type=str, default="gaussian_noise",
                     choices=["gaussian_noise", "gaussian_blur"])
 parser.add_argument("--noise_pct", type=int, default=None,
                     help="Percentage noise 0-100 (overrides severity/noise_type)")
+parser.add_argument("--blur_pct", type=int, default=None,
+                    help="Percentage blur 0-100 (overrides severity/noise_type)")
 args = parser.parse_args()
 
 if args.use_sage:
@@ -50,6 +52,12 @@ if args.noise_pct is not None:
     corr_sev  = args.noise_pct
     tag       = "%s_clean" % model_tag if is_clean else "%s_gaussian_noise_pct_p%d" % (model_tag, args.noise_pct)
     out_dir   = "results/sqa_noise_pct"
+elif args.blur_pct is not None:
+    is_clean  = args.blur_pct == 0
+    corr_type = "gaussian_blur_pct"
+    corr_sev  = args.blur_pct
+    tag       = "%s_clean" % model_tag if is_clean else "%s_gaussian_blur_pct_p%d" % (model_tag, args.blur_pct)
+    out_dir   = "results/sqa_blur_pct"
 else:
     if args.severity is None:
         parser.error("provide --severity 0-5 or --noise_pct 0-100")

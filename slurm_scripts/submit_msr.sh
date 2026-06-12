@@ -16,7 +16,8 @@ submit () {  # $1=job  $2=log  $3=python command
          --partition=normal \
          --gres=gpu:nvidia_h100_pcie:1 \
          --mem=64G \
-         --time=4:00:00 \
+         --time=8:00:00 \
+         --exclude=evc42 \
          --output="logs/$2.log" \
          --wrap="
 source /apps/anaconda/anaconda-2024.10/etc/profile.d/conda.sh

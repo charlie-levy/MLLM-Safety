@@ -1,0 +1,9 @@
+{
+  "model": "base_sage",
+  "noise_type": "gaussian_noise",
+  "severity": 4,
+  "asr_pct": 0.2,
+  "n_successful": 1,
+  "n_refused": 499,
+  "n_total": 500
+}

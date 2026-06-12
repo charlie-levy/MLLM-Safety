@@ -1,9 +1,0 @@
-{
-  "model": "base",
-  "noise_type": "gaussian_blur",
-  "severity": 3,
-  "accuracy": 81.6,
-  "correct": 204,
-  "unknown": 20,
-  "total": 250
-}

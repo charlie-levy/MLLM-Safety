@@ -1,0 +1,9 @@
+{
+  "model": "base_msr",
+  "noise_type": "gaussian_noise",
+  "severity": 4,
+  "asr_pct": 13.2,
+  "n_successful": 66,
+  "n_refused": 434,
+  "n_total": 500
+}

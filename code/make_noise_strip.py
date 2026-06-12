@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from PIL import Image, ImageDraw, ImageFont
 from noise_utils import noisy_image
 
-LEVELS = list(range(0, 101, 10))  # 0,10,...,100
+LEVELS = [0, 20, 40, 60, 80]   # match the bar-chart columns (up to 80%)
 
 def make_strip_from_image(src, out_path, label=""):
     """Build a 0..100% noise strip from an already-loaded PIL image."""

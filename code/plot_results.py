@@ -367,68 +367,101 @@ def plot_per_model_noise():
         plt.close(fig)
 
 
-# ── 6. Per-model: all three metrics vs NOISE PERCENTAGE (0-100%) ─────────────
+# ── 6. Per-model GROUPED BAR CHARTS vs corruption PERCENTAGE (0-80%) ──────────
 
-def _series_noise_pct(tag):
-    """{metric: ([pcts], [vals])} for ASR/ORR/SQA vs noise percentage.
-    0% reuses the clean baselines; 20-100% from the *_noise_pct folders."""
-    asr, orr, sqa = ([], []), ([], []), ([], [])
+# We plot percentage corruption up to 80% (the 100% column is dropped). 0% reuses
+# the clean baselines; 20-80% come from the matching *_noise_pct / *_blur_pct
+# folders. NOISE and BLUR share this machinery — only the folder/label differ.
+
+PCT_LEVELS = [0, 20, 40, 60, 80]   # stop at 80%, no 100% column
+
+def _series_pct(tag, kind):
+    """{metric: {pct: value}} for ASR/ORR/SQA vs corruption percentage.
+    kind = 'noise' or 'blur'. 0% reuses the clean baselines."""
+    folder = {"noise": "noise_pct", "blur": "blur_pct"}[kind]
+    label  = {"noise": "gaussian_noise_pct", "blur": "gaussian_blur_pct"}[kind]
+    asr, orr, sqa = {}, {}, {}
 
     c_asr = load(f"{BASE}/figstep_noise_sweep/asr_{tag}_clean.json")
     c_orr = load(f"{BASE}/orr/orr_{tag}.json")
     c_sqa = load(f"{BASE}/sqa_noise_sweep/judged_{tag}_clean.json")
-    if c_asr: asr[0].append(0); asr[1].append(get_asr(c_asr))
-    if c_orr: orr[0].append(0); orr[1].append(c_orr["avg_orr_pct"])
-    if c_sqa: sqa[0].append(0); sqa[1].append(c_sqa["accuracy"])
+    if c_asr: asr[0] = get_asr(c_asr)
+    if c_orr: orr[0] = c_orr["avg_orr_pct"]
+    if c_sqa: sqa[0] = c_sqa["accuracy"]
 
-    for p in [20, 40, 60, 80, 100]:
-        a = load(f"{BASE}/figstep_noise_pct/asr_{tag}_gaussian_noise_pct_p{p}.json")
-        o = load(f"{BASE}/orr_noise_pct/orr_{tag}_gaussian_noise_pct_p{p}.json")
-        q = load(f"{BASE}/sqa_noise_pct/judged_{tag}_gaussian_noise_pct_p{p}.json")
-        if a: asr[0].append(p); asr[1].append(get_asr(a))
-        if o: orr[0].append(p); orr[1].append(o["avg_orr_pct"])
-        if q: sqa[0].append(p); sqa[1].append(q["accuracy"])
+    for p in [20, 40, 60, 80]:
+        a = load(f"{BASE}/figstep_{folder}/asr_{tag}_{label}_p{p}.json")
+        o = load(f"{BASE}/orr_{folder}/orr_{tag}_{label}_p{p}.json")
+        q = load(f"{BASE}/sqa_{folder}/judged_{tag}_{label}_p{p}.json")
+        if a: asr[p] = get_asr(a)
+        if o: orr[p] = o["avg_orr_pct"]
+        if q: sqa[p] = q["accuracy"]
 
     return {"ASR": asr, "ORR": orr, "SQA": sqa}
 
 
-def plot_per_model_noise_pct():
-    """One figure per model: ASR, ORR and SQA utility vs noise PERCENTAGE
-    (0% = clean, 100% = pure static), shared 0-100% axis."""
+# back-compat alias (old callers / scripts referenced the noise-only helper)
+def _series_noise_pct(tag):
+    return _series_pct(tag, "noise")
+
+
+def _plot_per_model_bars(kind):
+    """One grouped-bar figure per model: ASR, ORR, SQA utility as bars at each
+    corruption level (0/20/40/60/80%). kind = 'noise' or 'blur'."""
     metric_style = {
-        "ASR": ("FigStep ASR",  "#C44E52", "o"),
-        "ORR": ("Avg ORR",      "#4C72B0", "s"),
-        "SQA": ("SQA Utility",  "#55A868", "^"),
+        "ASR": ("FigStep ASR",  "#C44E52"),
+        "ORR": ("Avg ORR",      "#4C72B0"),
+        "SQA": ("SQA Utility",  "#55A868"),
     }
+    pretty = {"noise": "Gaussian Noise", "blur": "Gaussian Blur"}[kind]
+    fkey   = {"noise": "noisepct", "blur": "blurpct"}[kind]
+
     for tag, name in [("base_tis", "Base + TIS"),
                       ("base_sage", "Base + SAGE"), ("base_msr", "Base + MSR")]:
-        series = _series_noise_pct(tag)
-        if not any(series[m][0] for m in series):
-            print("Skipping per-model noise-%% plot for %s (no data yet)" % name)
+        series = _series_pct(tag, kind)
+        if not any(series[m] for m in series):
+            print("Skipping per-model %s bar chart for %s (no data yet)" % (kind, name))
             continue
 
-        fig, ax = plt.subplots(figsize=(7, 4.5))
-        for metric, (label, color, marker) in metric_style.items():
-            pcts, vals = series[metric]
-            if pcts:
-                ax.plot(pcts, vals, color=color, marker=marker, linewidth=2,
-                        markersize=7, label=label)
+        x = np.arange(len(PCT_LEVELS))
+        width = 0.26
+        fig, ax = plt.subplots(figsize=(8, 4.8))
+        for j, (metric, (label, color)) in enumerate(metric_style.items()):
+            d = series[metric]
+            vals = [d.get(p, np.nan) for p in PCT_LEVELS]
+            bars = ax.bar(x + (j - 1) * width, vals, width,
+                          label=label, color=color, edgecolor="white", linewidth=0.6)
+            for rect, v in zip(bars, vals):
+                if not np.isnan(v):
+                    ax.text(rect.get_x() + rect.get_width() / 2, v + 1.5,
+                            f"{v:.0f}", ha="center", va="bottom", fontsize=9,
+                            fontweight="bold", color=color)
 
-        ax.set_xlabel("Gaussian Noise (% — 0 = clean, 100 = pure static)")
+        ax.set_xlabel("%s Level (0%% = clean)" % pretty)
         ax.set_ylabel("Rate / Accuracy (%)")
-        ax.set_title("%s — Metrics vs. Noise Level" % name)
-        ax.set_xticks([0, 20, 40, 60, 80, 100])
-        ax.set_xlim(-3, 103)
-        ax.set_ylim(0, 100)
+        ax.set_title("%s — Safety & Utility vs. %s" % (name, pretty))
+        ax.set_xticks(x)
+        ax.set_xticklabels([f"{p}%" for p in PCT_LEVELS])
+        ax.set_ylim(0, 105)
         ax.yaxis.set_major_formatter(mticker.PercentFormatter(xmax=100, decimals=0))
-        ax.xaxis.set_major_formatter(mticker.PercentFormatter(xmax=100, decimals=0))
-        ax.legend(loc="center right")
-        ax.grid(True, linestyle="--", alpha=0.4)
+        ax.legend(loc="upper center", ncol=3, frameon=True)
+        ax.grid(True, axis="y", linestyle="--", alpha=0.4)
+        ax.set_axisbelow(True)
         fig.tight_layout()
-        out = os.path.join(PLOTS, "per_model_noisepct_%s.png" % tag)
+        out = os.path.join(PLOTS, "per_model_%s_%s.png" % (fkey, tag))
         fig.savefig(out, bbox_inches="tight")
         print("Saved:", out)
         plt.close(fig)
+
+
+def plot_per_model_noise_pct():
+    """Grouped bar charts: metrics vs noise percentage (0-80%), one per model."""
+    _plot_per_model_bars("noise")
+
+
+def plot_per_model_blur_pct():
+    """Grouped bar charts: metrics vs blur percentage (0-80%), one per model."""
+    _plot_per_model_bars("blur")
 
 
 if __name__ == "__main__":
@@ -438,4 +471,5 @@ if __name__ == "__main__":
     plot_asr_vs_utility()
     plot_per_model_noise()
     plot_per_model_noise_pct()
+    plot_per_model_blur_pct()
     print("\nAll plots saved to", PLOTS)

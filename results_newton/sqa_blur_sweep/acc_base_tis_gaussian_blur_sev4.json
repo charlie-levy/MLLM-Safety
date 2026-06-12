@@ -2,8 +2,8 @@
   "model": "base_tis",
   "noise_type": "gaussian_blur",
   "severity": 4,
-  "accuracy": 32.8,
-  "correct": 82,
-  "unknown": 141,
+  "accuracy": 40.0,
+  "correct": 100,
+  "unknown": 34,
   "total": 250
 }

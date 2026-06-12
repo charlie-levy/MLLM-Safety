@@ -51,6 +51,13 @@ class Evaluator:
             from noise_utils import noisy_image
             return noisy_image(img, severity)
 
+        # Percentage-based blur (0% = clean, 100% = featureless). `severity` here
+        # carries the blur percentage. Shared blur_utils function so the eval blur
+        # exactly matches the example-strip images.
+        if corruption_type == "gaussian_blur_pct":
+            from blur_utils import blur_image
+            return blur_image(img, severity)
+
         img_array = np.array(img, dtype=np.float32)
 
         if corruption_type == "gaussian_blur":

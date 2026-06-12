@@ -29,6 +29,8 @@ parser.add_argument("--noise_type", type=str, default="gaussian_noise",
                     choices=["gaussian_noise", "gaussian_blur"])
 parser.add_argument("--noise_pct", type=int, default=None,
                     help="Percentage noise 0-100 (overrides severity/noise_type)")
+parser.add_argument("--blur_pct", type=int, default=None,
+                    help="Percentage blur 0-100 (overrides severity/noise_type)")
 args = parser.parse_args()
 
 if args.use_sage:
@@ -45,6 +47,11 @@ if args.noise_pct is not None:
     corr_sev    = args.noise_pct
     noise_label = "gaussian_noise_pct_p%d" % args.noise_pct
     out_dir     = "results/orr_noise_pct"
+elif args.blur_pct is not None:
+    corr_type   = "gaussian_blur_pct"
+    corr_sev    = args.blur_pct
+    noise_label = "gaussian_blur_pct_p%d" % args.blur_pct
+    out_dir     = "results/orr_blur_pct"
 else:
     if args.severity is None:
         parser.error("provide --severity 1-5 or --noise_pct 0-100")
@@ -103,6 +110,7 @@ with open(out_file, "w") as f:
         "model":       model_tag,
         "corruption":  noise_label,
         "noise_pct":   args.noise_pct,
+        "blur_pct":    args.blur_pct,
         "severity":    args.severity,
         "xstest":        xstest_metrics,
         "mmsa_combined": mmsa_metrics,
