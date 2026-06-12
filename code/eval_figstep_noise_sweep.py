@@ -17,9 +17,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--use_tis",  action="store_true", help="Load TIS adapter")
 parser.add_argument("--use_msr",  action="store_true", help="Load MSR-Align adapter")
 parser.add_argument("--use_sage", action="store_true", help="Load SAGE adapter")
-parser.add_argument("--severity", type=int, required=True, choices=[1,2,3,4,5])
+parser.add_argument("--severity", type=int, default=None, choices=[1,2,3,4,5])
 parser.add_argument("--noise_type", type=str, default="gaussian_noise",
                     choices=["gaussian_noise", "gaussian_blur"])
+parser.add_argument("--noise_pct", type=int, default=None,
+                    help="Percentage noise 0-100 (overrides severity/noise_type)")
 args = parser.parse_args()
 
 if args.use_sage:
@@ -31,8 +33,22 @@ elif args.use_tis:
 else:
     model_tag = "base"
 
+# Either a severity 1-5 (legacy noise/blur) or a noise percentage must be given.
+if args.noise_pct is not None:
+    corr_type = "gaussian_noise_pct"
+    corr_sev  = args.noise_pct
+    label     = "gaussian_noise_pct_p%d" % args.noise_pct
+    out_dir   = "results/figstep_noise_pct"
+else:
+    if args.severity is None:
+        parser.error("provide --severity 1-5 or --noise_pct 0-100")
+    corr_type = args.noise_type
+    corr_sev  = args.severity
+    label     = "%s_sev%d" % (args.noise_type, args.severity)
+    out_dir   = "results/figstep_noise_sweep"
+
 print("=" * 80)
-print("  FigStep | model=%s | noise=%s | severity=%d" % (model_tag, args.noise_type, args.severity))
+print("  FigStep | model=%s | corruption=%s" % (model_tag, label))
 print("=" * 80)
 
 print("\n[1/3] Loading FigStep...")
@@ -45,24 +61,24 @@ print("      OK: %s" % model_tag)
 
 print("\n[3/3] Running inference...")
 evaluator = Evaluator(model, processor,
-                      corruption_type=args.noise_type,
-                      corruption_severity=args.severity)
+                      corruption_type=corr_type,
+                      corruption_severity=corr_sev)
 results = evaluator.run(samples)
 
 metrics = compute_asr(results)
 print("\n" + "=" * 80)
-print("FigStep ASR (%s, %s sev=%d): %.2f%% (%d/%d)" % (
-    model_tag, args.noise_type, args.severity,
+print("FigStep ASR (%s, %s): %.2f%% (%d/%d)" % (
+    model_tag, label,
     metrics["asr_pct"], metrics["n_successful"], metrics["n_total"]))
 print("=" * 80)
 
-out_dir = "results/figstep_noise_sweep"
 os.makedirs(out_dir, exist_ok=True)
-out_file = os.path.join(out_dir, "asr_%s_%s_sev%d.json" % (model_tag, args.noise_type, args.severity))
+out_file = os.path.join(out_dir, "asr_%s_%s.json" % (model_tag, label))
 with open(out_file, "w") as f:
     json.dump({
         "model":       model_tag,
-        "noise_type":  args.noise_type,
+        "corruption":  label,
+        "noise_pct":   args.noise_pct,
         "severity":    args.severity,
         "asr_pct":     metrics["asr_pct"],
         "n_successful": metrics["n_successful"],
@@ -71,6 +87,6 @@ with open(out_file, "w") as f:
     }, f, indent=2)
 print("Saved: %s" % out_file)
 
-csv_file = os.path.join(out_dir, "responses_%s_%s_sev%d.csv" % (model_tag, args.noise_type, args.severity))
+csv_file = os.path.join(out_dir, "responses_%s_%s.csv" % (model_tag, label))
 save_results_csv(results, csv_file)
 print("Saved: %s" % csv_file)

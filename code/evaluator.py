@@ -44,6 +44,13 @@ class Evaluator:
 
     def _apply_corruption(self, img: PILImage.Image, corruption_type: str, severity: int) -> PILImage.Image:
         """Apply gaussian_blur or gaussian_noise corruption to image."""
+        # Percentage-based noise (0% = clean, 100% = pure static). Here `severity`
+        # carries the noise percentage. Uses the shared noise_utils function so the
+        # noise in the eval exactly matches the example-strip images.
+        if corruption_type == "gaussian_noise_pct":
+            from noise_utils import noisy_image
+            return noisy_image(img, severity)
+
         img_array = np.array(img, dtype=np.float32)
 
         if corruption_type == "gaussian_blur":

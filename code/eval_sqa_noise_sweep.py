@@ -26,10 +26,12 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--use_tis",  action="store_true", help="Load TIS adapter")
 parser.add_argument("--use_msr",  action="store_true", help="Load MSR-Align adapter")
 parser.add_argument("--use_sage", action="store_true", help="Load SAGE adapter")
-parser.add_argument("--severity", type=int, required=True, choices=[0,1,2,3,4,5],
+parser.add_argument("--severity", type=int, default=None, choices=[0,1,2,3,4,5],
                     help="0 = clean (no corruption)")
 parser.add_argument("--noise_type", type=str, default="gaussian_noise",
                     choices=["gaussian_noise", "gaussian_blur"])
+parser.add_argument("--noise_pct", type=int, default=None,
+                    help="Percentage noise 0-100 (overrides severity/noise_type)")
 args = parser.parse_args()
 
 if args.use_sage:
@@ -40,17 +42,26 @@ elif args.use_tis:
     model_tag = "base_tis"
 else:
     model_tag = "base"
-is_clean  = args.severity == 0
 
-# clean files are named with a "clean" tag and no severity suffix
-if is_clean:
-    tag = "%s_clean" % model_tag
+# Three modes: percentage noise, legacy severity 1-5, or clean (severity 0).
+if args.noise_pct is not None:
+    is_clean  = args.noise_pct == 0
+    corr_type = "gaussian_noise_pct"
+    corr_sev  = args.noise_pct
+    tag       = "%s_clean" % model_tag if is_clean else "%s_gaussian_noise_pct_p%d" % (model_tag, args.noise_pct)
+    out_dir   = "results/sqa_noise_pct"
 else:
-    tag = "%s_%s_sev%d" % (model_tag, args.noise_type, args.severity)
+    if args.severity is None:
+        parser.error("provide --severity 0-5 or --noise_pct 0-100")
+    is_clean  = args.severity == 0
+    corr_type = args.noise_type
+    corr_sev  = args.severity
+    tag       = "%s_clean" % model_tag if is_clean else "%s_%s_sev%d" % (model_tag, args.noise_type, args.severity)
+    out_dir   = "results/sqa_noise_sweep"
 
 print("=" * 80)
-print("  ScienceQA | model=%s | noise=%s | severity=%d%s" % (
-    model_tag, args.noise_type, args.severity, "  (CLEAN)" if is_clean else ""))
+print("  ScienceQA | model=%s | corruption=%s%s" % (
+    model_tag, tag, "  (CLEAN)" if is_clean else ""))
 print("=" * 80)
 
 print("\n[1/3] Loading ScienceQA...")
@@ -73,12 +84,11 @@ print("      OK: %s" % model_tag)
 
 print("\n[3/3] Running inference...")
 evaluator = Evaluator(model, processor,
-                      corruption_type=None if is_clean else args.noise_type,
-                      corruption_severity=args.severity)
+                      corruption_type=None if is_clean else corr_type,
+                      corruption_severity=corr_sev)
 results = evaluator.run(samples)
 
 # ── Save raw responses (source of truth for LLM judge) ──────────────────────────
-out_dir = "results/sqa_noise_sweep"
 os.makedirs(out_dir, exist_ok=True)
 
 raw_file = os.path.join(out_dir, "raw_%s.jsonl" % tag)
@@ -103,7 +113,8 @@ acc_file = os.path.join(out_dir, "acc_%s.json" % tag)
 with open(acc_file, "w") as f:
     json.dump({
         "model":      model_tag,
-        "noise_type": "clean" if is_clean else args.noise_type,
+        "corruption": "clean" if is_clean else tag,
+        "noise_pct":  args.noise_pct,
         "severity":   args.severity,
         "accuracy":   metrics["accuracy"],
         "correct":    metrics["n_correct"],

@@ -24,9 +24,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--use_tis",    action="store_true", help="Load TIS LoRA adapter")
 parser.add_argument("--use_msr",    action="store_true", help="Load MSR-Align adapter")
 parser.add_argument("--use_sage",   action="store_true", help="Load SAGE adapter")
-parser.add_argument("--severity",   type=int, required=True, choices=[1,2,3,4,5])
-parser.add_argument("--noise_type", type=str, required=True,
+parser.add_argument("--severity",   type=int, default=None, choices=[1,2,3,4,5])
+parser.add_argument("--noise_type", type=str, default="gaussian_noise",
                     choices=["gaussian_noise", "gaussian_blur"])
+parser.add_argument("--noise_pct", type=int, default=None,
+                    help="Percentage noise 0-100 (overrides severity/noise_type)")
 args = parser.parse_args()
 
 if args.use_sage:
@@ -37,10 +39,22 @@ elif args.use_tis:
     model_tag = "base_tis"
 else:
     model_tag = "base"
-noise_label = "%s_sev%d" % (args.noise_type, args.severity)
+
+if args.noise_pct is not None:
+    corr_type   = "gaussian_noise_pct"
+    corr_sev    = args.noise_pct
+    noise_label = "gaussian_noise_pct_p%d" % args.noise_pct
+    out_dir     = "results/orr_noise_pct"
+else:
+    if args.severity is None:
+        parser.error("provide --severity 1-5 or --noise_pct 0-100")
+    corr_type   = args.noise_type
+    corr_sev    = args.severity
+    noise_label = "%s_sev%d" % (args.noise_type, args.severity)
+    out_dir     = "results/orr_noise_sweep"
 
 print("=" * 80)
-print("  ORR Noise Sweep | model=%s | corruption=%s" % (model_tag, noise_label))
+print("  ORR Sweep | model=%s | corruption=%s" % (model_tag, noise_label))
 print("=" * 80)
 
 print("\n[1/4] Loading model (%s)..." % model_tag)
@@ -48,8 +62,8 @@ model, processor, _ = load_model_and_processor(use_tis=args.use_tis, use_msr=arg
 print("      OK")
 
 evaluator = Evaluator(model, processor,
-                      corruption_type=args.noise_type,
-                      corruption_severity=args.severity)
+                      corruption_type=corr_type,
+                      corruption_severity=corr_sev)
 
 print("\n[2/4] Loading XSTest (250 samples)...")
 xstest_samples = load_xstest()
@@ -82,13 +96,13 @@ print("-" * 56)
 print("%-26s  %5s   %8s   %5.1f%%" % ("Avg ORR", "", "", avg_orr_pct))
 print("=" * 80)
 
-out_dir  = "results/orr_noise_sweep"
 os.makedirs(out_dir, exist_ok=True)
 out_file = os.path.join(out_dir, "orr_%s_%s.json" % (model_tag, noise_label))
 with open(out_file, "w") as f:
     json.dump({
         "model":       model_tag,
-        "noise_type":  args.noise_type,
+        "corruption":  noise_label,
+        "noise_pct":   args.noise_pct,
         "severity":    args.severity,
         "xstest":        xstest_metrics,
         "mmsa_combined": mmsa_metrics,

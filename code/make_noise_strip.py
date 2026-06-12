@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
-make_blur_strip.py — Build a labeled horizontal strip of one image blurred at
-0%, 10%, ..., 100% (percentage-based Gaussian blur, see blur_utils.py).
+make_noise_strip.py — Build a labeled horizontal strip of one image with Gaussian
+noise at 0%, 10%, ..., 100% (percentage-based, see noise_utils.py).
 
-For presentation visuals: shows what each blur level looks like.
+For presentation visuals: shows what each noise level looks like.
 
 Usage:
-  python3 code/make_blur_strip.py <image_path> <out_path> [label]
+  python3 code/make_noise_strip.py <image_path> <out_path> [label]
 """
 import sys, os
 sys.path.insert(0, os.path.dirname(__file__))
 from PIL import Image, ImageDraw, ImageFont
-from blur_utils import blur_image
+from noise_utils import noisy_image
 
 LEVELS = list(range(0, 101, 10))  # 0,10,...,100
 
@@ -30,7 +30,7 @@ def make_strip(img_path, out_path, label=""):
         font = ImageFont.load_default()
 
     for i, pct in enumerate(LEVELS):
-        tile = blur_image(thumb, pct)
+        tile = noisy_image(thumb, pct, seed=42)   # fixed seed = reproducible strip
         x = pad + i * (tw + pad)
         strip.paste(tile, (x, top))
         cap = f"{pct}%"
