@@ -15,8 +15,9 @@ from noise_utils import noisy_image
 
 LEVELS = list(range(0, 101, 10))  # 0,10,...,100
 
-def make_strip(img_path, out_path, label=""):
-    src = Image.open(img_path).convert("RGB")
+def make_strip_from_image(src, out_path, label=""):
+    """Build a 0..100% noise strip from an already-loaded PIL image."""
+    src = src.convert("RGB")
     thumb = src.copy()
     thumb.thumbnail((220, 220))           # uniform tile size
     tw, th = thumb.size
@@ -41,6 +42,10 @@ def make_strip(img_path, out_path, label=""):
         draw.text((pad, th + top - 2), label, fill="#444", font=font)
     strip.save(out_path)
     print("Saved:", out_path, strip.size)
+
+def make_strip(img_path, out_path, label=""):
+    """Build a 0..100% noise strip from an image file path."""
+    make_strip_from_image(Image.open(img_path), out_path, label)
 
 if __name__ == "__main__":
     img = sys.argv[1]
