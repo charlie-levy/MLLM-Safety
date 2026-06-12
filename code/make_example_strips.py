@@ -13,8 +13,9 @@ Usage:
 Writes to results/noise_examples/. Pull those PNGs to your Mac for the slides.
 """
 import sys, os
-sys.path.insert(0, os.path.dirname(__file__))
-os.chdir(os.path.dirname(os.path.dirname(__file__)))
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+os.chdir(os.path.dirname(HERE))   # repo root
 
 from dataset_loader import load_figstep, load_xstest, load_mmsa
 from make_noise_strip import make_strip_from_image
