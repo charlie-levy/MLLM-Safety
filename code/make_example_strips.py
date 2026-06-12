@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-make_example_strips.py — Generate 0%..100% Gaussian-noise example strips for one
+make_example_strips.py - Generate 0%..100% Gaussian-noise example strips for one
 FigStep, one XSTest (safe subset), and one MMSA (safe subset) image, using the
 SAME dataset loaders the evals use (so the images are exactly what the models see).
 
@@ -38,19 +38,19 @@ mm_idx  = int(sys.argv[3]) if len(sys.argv) > 3 else 0
 print("Loading FigStep ..."); fig = load_figstep()
 img, i = pick(fig, fig_idx)
 make_strip_from_image(img, f"{OUT}/noise_strip_figstep.png",
-                      "FigStep (SafeBench) — Gaussian noise 0% to 100%")
+                      "FigStep (SafeBench) - Gaussian noise 0% to 100%")
 print("  used FigStep sample idx", i)
 
 print("Loading XSTest (safe subset) ..."); xs = load_xstest()
 img, i = pick(xs, xs_idx)
 make_strip_from_image(img, f"{OUT}/noise_strip_xstest.png",
-                      "XSTest (safe) — Gaussian noise 0% to 100%")
+                      "XSTest (safe) - Gaussian noise 0% to 100%")
 print("  used XSTest sample idx", i)
 
 print("Loading MMSA (safe subset) ..."); mm = load_mmsa()
 img, i = pick(mm, mm_idx)
 make_strip_from_image(img, f"{OUT}/noise_strip_mmsa.png",
-                      "MMSA (safe) — Gaussian noise 0% to 100%")
+                      "MMSA (safe) - Gaussian noise 0% to 100%")
 print("  used MMSA sample idx", i)
 
 print("\nDone. Pull results/noise_examples/*.png to your Mac.")

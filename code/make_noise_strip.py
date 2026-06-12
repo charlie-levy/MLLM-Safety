@@ -22,13 +22,26 @@ def make_strip_from_image(src, out_path, label=""):
     thumb.thumbnail((220, 220))           # uniform tile size
     tw, th = thumb.size
     pad, top = 8, 30
+    bottom = 30 if label else pad          # room for the caption row
     n = len(LEVELS)
-    strip = Image.new("RGB", (n * (tw + pad) + pad, th + top + pad), "white")
+    strip = Image.new("RGB", (n * (tw + pad) + pad, th + top + bottom), "white")
     draw = ImageDraw.Draw(strip)
-    try:
-        font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 16)
-    except Exception:
-        font = ImageFont.load_default()
+    font = None
+    for cand in ("DejaVuSans.ttf",
+                 "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                 "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+                 "/System/Library/Fonts/Helvetica.ttc",
+                 "/System/Library/Fonts/Supplemental/Arial.ttf"):
+        try:
+            font = ImageFont.truetype(cand, 18); break
+        except Exception:
+            continue
+    if font is None:
+        try:  # last resort: borrow matplotlib's bundled DejaVu Sans
+            from matplotlib import font_manager
+            font = ImageFont.truetype(font_manager.findfont("DejaVu Sans"), 18)
+        except Exception:
+            font = ImageFont.load_default()
 
     for i, pct in enumerate(LEVELS):
         tile = noisy_image(thumb, pct, seed=42)   # fixed seed = reproducible strip
@@ -39,7 +52,7 @@ def make_strip_from_image(src, out_path, label=""):
         draw.text((x + (tw - (bb[2]-bb[0]))//2, 6), cap, fill="black", font=font)
 
     if label:
-        draw.text((pad, th + top - 2), label, fill="#444", font=font)
+        draw.text((pad, th + top + 6), label, fill="#444", font=font)
     strip.save(out_path)
     print("Saved:", out_path, strip.size)
 
