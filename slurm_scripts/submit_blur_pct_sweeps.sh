@@ -24,6 +24,10 @@ export PYTHONPATH=/home/ch169788/llava_cot_eval/code:\$PYTHONPATH
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 export HF_HUB_DISABLE_XET=1
 export HF_HUB_ENABLE_HF_TRANSFER=0
+# Base model is cached and adapters are local, so load offline only -- guards
+# against the flaky HF Hub call (\"client has been closed\") that killed the MSR runs.
+export HF_HUB_OFFLINE=1
+export TRANSFORMERS_OFFLINE=1
 cd /home/ch169788/llava_cot_eval
 python code/$4
 "
