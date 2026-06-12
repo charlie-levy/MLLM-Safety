@@ -424,27 +424,29 @@ def _plot_per_model_bars(kind):
             continue
 
         x = np.arange(len(PCT_LEVELS))
-        width = 0.26
-        fig, ax = plt.subplots(figsize=(8, 4.8))
+        width = 0.27
+        fig, ax = plt.subplots(figsize=(8.5, 5.4))
         for j, (metric, (label, color)) in enumerate(metric_style.items()):
             d = series[metric]
             vals = [d.get(p, np.nan) for p in PCT_LEVELS]
             bars = ax.bar(x + (j - 1) * width, vals, width,
-                          label=label, color=color, edgecolor="white", linewidth=0.6)
+                          label=label, color=color, edgecolor="white", linewidth=0.8)
             for rect, v in zip(bars, vals):
                 if not np.isnan(v):
                     ax.text(rect.get_x() + rect.get_width() / 2, v + 1.5,
-                            f"{v:.0f}", ha="center", va="bottom", fontsize=9,
+                            f"{v:.0f}", ha="center", va="bottom", fontsize=14,
                             fontweight="bold", color=color)
 
-        ax.set_xlabel("%s Level (0%% = clean)" % pretty)
-        ax.set_ylabel("Rate / Accuracy (%)")
-        ax.set_title("%s — Safety & Utility vs. %s" % (name, pretty))
+        ax.set_xlabel("%s Level" % pretty, fontsize=16)
+        ax.set_ylabel("Percent (%)", fontsize=16)
+        ax.set_title("%s — %s" % (name, pretty), fontsize=18, fontweight="bold")
         ax.set_xticks(x)
-        ax.set_xticklabels([f"{p}%" for p in PCT_LEVELS])
-        ax.set_ylim(0, 105)
+        ax.set_xticklabels([f"{p}%" for p in PCT_LEVELS], fontsize=15)
+        ax.tick_params(axis="y", labelsize=14)
+        ax.set_ylim(0, 108)
         ax.yaxis.set_major_formatter(mticker.PercentFormatter(xmax=100, decimals=0))
-        ax.legend(loc="upper center", ncol=3, frameon=True)
+        ax.legend(loc="upper center", ncol=3, frameon=True, fontsize=14,
+                  handlelength=1.3, columnspacing=1.2)
         ax.grid(True, axis="y", linestyle="--", alpha=0.4)
         ax.set_axisbelow(True)
         fig.tight_layout()

@@ -28,7 +28,7 @@ SOURCES = [
 def condition_from(fname):
     """Human-readable condition label derived from the file name."""
     base = os.path.basename(fname).replace(f"responses_{TAG}_", "").replace(".csv", "")
-    if base == "clean":
+    if base == "clean" or base.endswith("_p0"):
         return "clean (0%)"
     if base.startswith("gaussian_noise_pct_p"):
         return f"noise {base.split('_p')[-1]}%"
@@ -43,6 +43,8 @@ def condition_from(fname):
 rows, header, n_files = [], None, 0
 for folder, pat in SOURCES:
     for path in sorted(glob.glob(os.path.join(folder, pat))):
+        if path.endswith("_p100.csv"):
+            continue                       # we cap the study at 80%
         cond = condition_from(path)
         with open(path, newline="", encoding="utf-8") as f:
             reader = csv.DictReader(f)
