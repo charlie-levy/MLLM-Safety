@@ -407,51 +407,76 @@ def _series_noise_pct(tag):
 
 def _plot_per_model_bars(kind):
     """One grouped-bar figure per model: ASR, ORR, SQA utility as bars at each
-    corruption level (0/20/40/60/80%). kind = 'noise' or 'blur'."""
-    metric_style = {
-        "ASR": ("FigStep ASR",  "#C44E52"),
-        "ORR": ("Avg ORR",      "#4C72B0"),
-        "SQA": ("SQA Utility",  "#55A868"),
-    }
+    corruption level (0/20/40/60/80%). kind = 'noise' or 'blur'.
+
+    Only x-positions where at least one metric has data are drawn — the chart
+    always looks populated, never shows a cluster on the far-left with empty space.
+    """
+    metrics = [
+        ("ASR", "FigStep ASR",  "#C44E52"),
+        ("ORR", "Avg ORR",      "#4C72B0"),
+        ("SQA", "SQA Utility",  "#55A868"),
+    ]
     pretty = {"noise": "Gaussian Noise", "blur": "Gaussian Blur"}[kind]
     fkey   = {"noise": "noisepct", "blur": "blurpct"}[kind]
 
     for tag, name in [("base_tis", "Base + TIS"),
                       ("base_sage", "Base + SAGE"), ("base_msr", "Base + MSR")]:
         series = _series_pct(tag, kind)
-        if not any(series[m] for m in series):
-            print("Skipping per-model %s bar chart for %s (no data yet)" % (kind, name))
+
+        # ── only keep levels that have at least one data point ──────────────────
+        avail = [p for p in PCT_LEVELS
+                 if any(series[m].get(p) is not None for m, *_ in metrics)]
+        if not avail:
+            print("Skipping %s bar chart for %s (no data yet)" % (kind, name))
             continue
 
-        x = np.arange(len(PCT_LEVELS))
-        width = 0.27
-        fig, ax = plt.subplots(figsize=(8.5, 5.4))
-        for j, (metric, (label, color)) in enumerate(metric_style.items()):
+        n_metrics = len(metrics)
+        width  = 0.22
+        gap    = 0.06                          # gap between groups
+        group_w = n_metrics * width + gap
+        x = np.arange(len(avail)) * group_w   # evenly spaced group centres
+
+        figw = max(7, len(avail) * group_w * 3.5 + 1.5)
+        fig, ax = plt.subplots(figsize=(figw, 5.8))
+
+        for j, (metric, label, color) in enumerate(metrics):
             d = series[metric]
-            vals = [d.get(p, np.nan) for p in PCT_LEVELS]
-            bars = ax.bar(x + (j - 1) * width, vals, width,
-                          label=label, color=color, edgecolor="white", linewidth=0.8)
+            vals   = [d.get(p, np.nan) for p in avail]
+            offset = (j - (n_metrics - 1) / 2) * width
+            bars   = ax.bar(x + offset, vals, width, label=label,
+                            color=color, edgecolor="white", linewidth=0.8, alpha=0.90)
             for rect, v in zip(bars, vals):
                 if not np.isnan(v):
-                    ax.text(rect.get_x() + rect.get_width() / 2, v + 1.5,
-                            f"{v:.0f}", ha="center", va="bottom", fontsize=14,
-                            fontweight="bold", color=color)
+                    ax.text(rect.get_x() + rect.get_width() / 2, v + 1.3,
+                            f"{v:.0f}", ha="center", va="bottom",
+                            fontsize=13, fontweight="bold", color=color)
 
-        ax.set_xlabel("%s Level" % pretty, fontsize=16)
-        ax.set_ylabel("Percent (%)", fontsize=16)
-        ax.set_title("%s — %s" % (name, pretty), fontsize=18, fontweight="bold")
+        # subtle background on the clean (0%) column
+        if 0 in avail:
+            ci = avail.index(0)
+            ax.axvspan(x[ci] - group_w / 2 + 0.02, x[ci] + group_w / 2 - 0.02,
+                       color="#f4f4f4", zorder=0)
+            ax.text(x[ci], -9, "clean", ha="center", fontsize=11, color="#888888")
+
+        ax.set_xlabel("%s Level (0%% = clean)" % pretty, fontsize=15, labelpad=8)
+        ax.set_ylabel("Rate / Accuracy (%)", fontsize=15)
+        ax.set_title("%s — Safety & Utility Under %s" % (name, pretty),
+                     fontsize=17, fontweight="bold", pad=10)
         ax.set_xticks(x)
-        ax.set_xticklabels([f"{p}%" for p in PCT_LEVELS], fontsize=15)
-        ax.tick_params(axis="y", labelsize=14)
-        ax.set_ylim(0, 108)
+        ax.set_xticklabels([f"{p}%" for p in avail], fontsize=14)
+        ax.tick_params(axis="y", labelsize=13)
+        ax.set_ylim(0, 115)
         ax.yaxis.set_major_formatter(mticker.PercentFormatter(xmax=100, decimals=0))
-        ax.legend(loc="upper center", ncol=3, frameon=True, fontsize=14,
-                  handlelength=1.3, columnspacing=1.2)
-        ax.grid(True, axis="y", linestyle="--", alpha=0.4)
+        ax.legend(loc="upper right", ncol=3, frameon=True, fontsize=13,
+                  handlelength=1.4, columnspacing=1.0, borderpad=0.6)
+        ax.grid(True, axis="y", linestyle="--", alpha=0.35)
         ax.set_axisbelow(True)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
         fig.tight_layout()
         out = os.path.join(PLOTS, "per_model_%s_%s.png" % (fkey, tag))
-        fig.savefig(out, bbox_inches="tight")
+        fig.savefig(out, bbox_inches="tight", dpi=150)
         print("Saved:", out)
         plt.close(fig)
 
