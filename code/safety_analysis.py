@@ -77,9 +77,11 @@ def _kind_has_data(kind):
 
 # ── Metric accessors (one source of truth for every number) ─────────────────
 def figstep_asr(tag, kind, p):
-    """FigStep Attack Success Rate (%). p=0 reuses the clean baseline."""
+    """FigStep Attack Success Rate (%). p=0 reuses the clean baseline (prefer the
+    re-scored p0 file; fall back to the original clean file if p0 not present yet)."""
     if p == 0:
-        d = _load(f"{BASE}/figstep_noise_sweep/asr_{tag}_clean.json")
+        d = (_load(f"{BASE}/figstep_noise_pct/asr_{tag}_gaussian_noise_pct_p0.json")
+             or _load(f"{BASE}/figstep_noise_sweep/asr_{tag}_clean.json"))
     else:
         fol, lab = _folder_label(kind)
         d = _load(f"{BASE}/figstep_{fol}/asr_{tag}_{lab}_p{p}.json")
@@ -89,7 +91,8 @@ def figstep_asr(tag, kind, p):
 def orr_split(tag, kind, p):
     """(XSTest ORR%, MMSA ORR%) kept separate. p=0 reuses the clean baseline."""
     if p == 0:
-        d = _load(f"{BASE}/orr/orr_{tag}.json")
+        d = (_load(f"{BASE}/orr_noise_pct/orr_{tag}_gaussian_noise_pct_p0.json")
+             or _load(f"{BASE}/orr/orr_{tag}.json"))
     else:
         fol, lab = _folder_label(kind)
         d = _load(f"{BASE}/orr_{fol}/orr_{tag}_{lab}_p{p}.json")
