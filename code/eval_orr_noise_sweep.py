@@ -31,6 +31,11 @@ parser.add_argument("--noise_pct", type=int, default=None,
                     help="Percentage noise 0-100 (overrides severity/noise_type)")
 parser.add_argument("--blur_pct", type=int, default=None,
                     help="Percentage blur 0-100 (overrides severity/noise_type)")
+parser.add_argument("--corrupt", type=str, default=None,
+                    choices=["jpeg", "brightness", "pixelate"],
+                    help="Realistic corruption name (use with --corrupt_pct)")
+parser.add_argument("--corrupt_pct", type=int, default=None,
+                    help="Percentage 0-100 for --corrupt")
 args = parser.parse_args()
 
 if args.use_sage:
@@ -52,6 +57,13 @@ elif args.blur_pct is not None:
     corr_sev    = args.blur_pct
     noise_label = "gaussian_blur_pct_p%d" % args.blur_pct
     out_dir     = "results/orr_blur_pct"
+elif args.corrupt is not None:
+    if args.corrupt_pct is None:
+        parser.error("--corrupt requires --corrupt_pct")
+    corr_type   = "%s_pct" % args.corrupt
+    corr_sev    = args.corrupt_pct
+    noise_label = "%s_pct_p%d" % (args.corrupt, args.corrupt_pct)
+    out_dir     = "results/orr_%s_pct" % args.corrupt
 else:
     if args.severity is None:
         parser.error("provide --severity 1-5 or --noise_pct 0-100")

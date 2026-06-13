@@ -58,6 +58,19 @@ class Evaluator:
             from blur_utils import blur_image
             return blur_image(img, severity)
 
+        # Realistic percentage-based corruptions. `severity` carries the percentage;
+        # each uses its shared *_utils function so the corruption in the eval exactly
+        # matches the example-strip images.
+        if corruption_type == "jpeg_pct":
+            from jpeg_utils import jpeg_image
+            return jpeg_image(img, severity)
+        if corruption_type == "brightness_pct":
+            from brightness_utils import brightness_image
+            return brightness_image(img, severity)
+        if corruption_type == "pixelate_pct":
+            from pixelate_utils import pixelate_image
+            return pixelate_image(img, severity)
+
         img_array = np.array(img, dtype=np.float32)
 
         if corruption_type == "gaussian_blur":

@@ -41,8 +41,16 @@ BASE   = "results_newton"
 PLOTS  = f"{BASE}/plots"
 MODELS = [("base_tis", "TIS"), ("base_sage", "SAGE"), ("base_msr", "MSR-Align")]
 LEVELS = [0, 20, 40, 60, 80]                 # 0 = clean, capped at 80%
+# Synthetic corruptions (always have data) — used by the validation pass.
 KINDS  = [("noise", "noise_pct", "gaussian_noise_pct", "Gaussian Noise"),
           ("blur",  "blur_pct",  "gaussian_blur_pct",  "Gaussian Blur")]
+# All corruption families. The realistic ones (jpeg/brightness/pixelate) populate
+# as their Newton jobs finish; the combo charts auto-skip any family with no data.
+SWEEP_KINDS = KINDS + [
+    ("jpeg",       "jpeg_pct",       "jpeg_pct",       "JPEG Compression"),
+    ("brightness", "brightness_pct", "brightness_pct", "Low-light / Dimming"),
+    ("pixelate",   "pixelate_pct",   "pixelate_pct",   "Pixelation / Low-res"),
+]
 MODEL_COLORS = {"TIS": "#C44E52", "SAGE": "#4C72B0", "MSR-Align": "#55A868"}
 
 # Expected sample counts — used by the validation pass.
@@ -54,10 +62,17 @@ def _load(path):
 
 
 def _folder_label(kind):
-    for k, fol, lab, _ in KINDS:
+    for k, fol, lab, _ in SWEEP_KINDS:
         if k == kind:
             return fol, lab
     raise ValueError(kind)
+
+
+def _kind_has_data(kind):
+    """True if at least one model has a p20 FigStep result for this family."""
+    fol, lab = _folder_label(kind)
+    return any(os.path.exists(f"{BASE}/figstep_{fol}/asr_{tag}_{lab}_p20.json")
+               for tag, _ in MODELS)
 
 
 # ── Metric accessors (one source of truth for every number) ─────────────────
@@ -327,6 +342,79 @@ def fig_utility_decay():
     print("Saved:", out)
 
 
+# ── Signature combo chart: stacked safety-failure bars + utility line ───────
+def fig_combo_per_model():
+    """Dashboard-style combo, one per (corruption family, model):
+      • stacked bars (LEFT axis)  = safety-failure load: FigStep ASR (unsafe
+        compliance) stacked with MMSA ORR (over-refusal) — both 'lower is better',
+        so a taller stack = worse safety.
+      • line (RIGHT axis, 0-100) = ScienceQA Utility — the capability trend that
+        runs through the middle, the way a total/forecast line sits over cost bars.
+    Auto-skips corruption families that have no data yet."""
+    x = np.arange(len(LEVELS))
+    n = 0
+    for kind, fol, lab, pretty in SWEEP_KINDS:
+        if not _kind_has_data(kind):
+            continue
+        for tag, name in MODELS:
+            asr  = [figstep_asr(tag, kind, p) for p in LEVELS]
+            mm   = [orr_split(tag, kind, p)[1] for p in LEVELS]
+            util = [sqa_util(tag, kind, p) for p in LEVELS]
+            asr  = [v if v is not None else np.nan for v in asr]
+            mm   = [v if v is not None else np.nan for v in mm]
+            util = [v if v is not None else np.nan for v in util]
+
+            fig, axL = plt.subplots(figsize=(11, 6.3))
+            axR = axL.twinx()
+
+            b1 = axL.bar(x, asr, width=0.60, color="#C44E52", edgecolor="white",
+                         linewidth=1, label="FigStep ASR  (unsafe compliance ↓)")
+            b2 = axL.bar(x, mm, width=0.60, bottom=asr, color="#E69F00",
+                         edgecolor="white", linewidth=1,
+                         label="MMSA ORR  (over-refusal ↓)")
+            # value labels inside each segment
+            for xi, a, m in zip(x, asr, mm):
+                if not np.isnan(a) and a > 4:
+                    axL.text(xi, a / 2, f"{a:.0f}", ha="center", va="center",
+                             fontsize=11, fontweight="bold", color="white")
+                if not np.isnan(m) and m > 6:
+                    axL.text(xi, a + m / 2, f"{m:.0f}", ha="center", va="center",
+                             fontsize=11, fontweight="bold", color="white")
+
+            ln = axR.plot(x, util, color="#1f9e89", marker="o", markersize=11,
+                          linewidth=3.4, label="ScienceQA Utility (↑)", zorder=6)
+            for xi, u in zip(x, util):
+                if not np.isnan(u):
+                    axR.text(xi, u + 2.5, f"{u:.0f}", ha="center", va="bottom",
+                             fontsize=12, fontweight="bold", color="#13705f", zorder=7)
+
+            axL.set_xticks(x)
+            axL.set_xticklabels([f"{p}%\nclean" if p == 0 else f"{p}%" for p in LEVELS],
+                                fontsize=13)
+            axL.set_xlabel(f"{pretty} level", fontsize=14)
+            axL.set_ylabel("Safety-failure load (stacked %)", fontsize=13)
+            axR.set_ylabel("ScienceQA Utility (%)", fontsize=13, color="#13705f")
+            axR.tick_params(axis="y", colors="#13705f")
+            top = np.nanmax([a + m for a, m in zip(asr, mm)] + [1])
+            axL.set_ylim(0, max(120, top * 1.15))
+            axR.set_ylim(0, 100)
+            axL.set_title(f"{name} under {pretty}: safety-failure bars vs utility line",
+                          fontsize=15, fontweight="bold", pad=10)
+            # combined legend, placed below the plot so it never covers the bars
+            h1, l1 = axL.get_legend_handles_labels()
+            h2, l2 = axR.get_legend_handles_labels()
+            axL.legend(h1 + h2, l1 + l2, fontsize=11, loc="upper center",
+                       bbox_to_anchor=(0.5, -0.13), ncol=3, framealpha=0.95)
+            axL.grid(axis="y", linestyle="--", alpha=0.3)
+            axL.set_axisbelow(True)
+            fig.tight_layout()
+            out = f"{PLOTS}/analysis_combo_{kind}_{tag}.png"
+            fig.savefig(out, dpi=150, bbox_inches="tight"); plt.close(fig)
+            print("Saved:", out); n += 1
+    if n == 0:
+        print("(combo) no corruption families have data yet — skipped")
+
+
 def main():
     if not os.path.isdir(BASE):
         sys.exit(f"Run from the repo root; '{BASE}/' not found.")
@@ -341,6 +429,7 @@ def main():
     fig_asr_under_corruption()
     fig_orr_modality_confound()
     fig_utility_decay()
+    fig_combo_per_model()
     print("\nAll analysis figures written to", PLOTS)
 
 
