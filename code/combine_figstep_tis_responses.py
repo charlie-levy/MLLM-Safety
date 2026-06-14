@@ -23,6 +23,9 @@ SOURCES = [
     (f"{R}/figstep_noise_sweep", f"responses_{TAG}_gaussian_noise_sev*.csv"),
     (f"{R}/figstep_noise_pct",   f"responses_{TAG}_gaussian_noise_pct_p*.csv"),
     (f"{R}/figstep_blur_pct",    f"responses_{TAG}_gaussian_blur_pct_p*.csv"),
+    (f"{R}/figstep_jpeg_pct",       f"responses_{TAG}_jpeg_pct_p*.csv"),
+    (f"{R}/figstep_brightness_pct", f"responses_{TAG}_brightness_pct_p*.csv"),
+    (f"{R}/figstep_pixelate_pct",   f"responses_{TAG}_pixelate_pct_p*.csv"),
 ]
 
 def condition_from(fname):
@@ -34,6 +37,12 @@ def condition_from(fname):
         return f"noise {base.split('_p')[-1]}%"
     if base.startswith("gaussian_blur_pct_p"):
         return f"blur {base.split('_p')[-1]}%"
+    if base.startswith("jpeg_pct_p"):
+        return f"jpeg {base.split('_p')[-1]}%"
+    if base.startswith("brightness_pct_p"):
+        return f"low-light {base.split('_p')[-1]}%"
+    if base.startswith("pixelate_pct_p"):
+        return f"pixelate {base.split('_p')[-1]}%"
     if base.startswith("gaussian_noise_sev"):
         return f"noise sev{base.split('sev')[-1]}"
     if base.startswith("gaussian_blur_sev"):

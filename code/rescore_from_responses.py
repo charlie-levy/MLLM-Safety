@@ -21,7 +21,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from metrics import is_refusal, is_mmsa_over_refusal
 
 csv.field_size_limit(10_000_000)
-R = "results"
+# Base results dir: "results" on Newton, "results_newton" on the Mac after a pull.
+R = sys.argv[1] if len(sys.argv) > 1 else "results"
 
 
 def _rows(path):
