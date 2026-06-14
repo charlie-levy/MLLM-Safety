@@ -21,7 +21,7 @@ plt.rcParams.update({
 })
 
 BASE = "results_newton"
-PLOTS = os.path.join(BASE, "plots")
+PLOTS = os.path.join(BASE, "plots", "per_model")
 os.makedirs(PLOTS, exist_ok=True)
 
 COLORS = {

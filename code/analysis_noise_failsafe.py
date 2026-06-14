@@ -13,7 +13,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-B = "results_newton"; PLOTS = f"{B}/plots"
+B = "results_newton"; PLOTS = f"{B}/plots/presentation"
+os.makedirs(PLOTS, exist_ok=True)
 LEVELS = [0, 20, 40, 60, 80]
 MODELS = [("base_tis", "TIS"), ("base_sage", "SAGE"), ("base_msr", "MSR-Align")]
 

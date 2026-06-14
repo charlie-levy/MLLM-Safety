@@ -38,7 +38,7 @@ import matplotlib.pyplot as plt
 
 # ── Config ──────────────────────────────────────────────────────────────────
 BASE   = "results_newton"
-PLOTS  = f"{BASE}/plots"
+PLOTS  = f"{BASE}/plots/analysis"
 MODELS = [("base_tis", "TIS"), ("base_sage", "SAGE"), ("base_msr", "MSR-Align")]
 LEVELS = [0, 20, 40, 60, 80]                 # 0 = clean, capped at 80%
 # Synthetic corruptions (always have data) — used by the validation pass.

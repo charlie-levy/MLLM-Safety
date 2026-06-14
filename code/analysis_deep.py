@@ -33,7 +33,7 @@ from metrics import is_refusal
 
 csv.field_size_limit(10_000_000)
 CSV   = "results_newton/figstep_tis_all_responses.csv"
-PLOTS = "results_newton/plots"
+PLOTS = "results_newton/plots/deep"
 COND_ORDER = ["clean (0%)", "noise 20%", "noise 40%", "noise 60%", "noise 80%",
               "blur 20%", "blur 40%", "blur 60%", "blur 80%"]
 
