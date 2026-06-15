@@ -16,4 +16,6 @@ __pycache__/
 .DS_Store
 *.swp
 model_weights/
-model_weights/
+
+# Local-only agent notes
+CLAUDE.md
