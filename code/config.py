@@ -23,6 +23,30 @@ MSR_LORA_PATH = "/home/ch169788/llava_cot_eval/model_weights/llama_cot_msr"
 # SAGE (LoRA) adapter
 SAGE_LORA_PATH = "/home/ch169788/llava_cot_eval/model_weights/llama_cot_sage"
 
+# ── Models: VLGuard (LLaVA-1.5-7B safety fine-tunes) ───────────────────────────
+# VLGuard (Zong et al., ICML 2024, arXiv:2402.02207) released two safety-tuned
+# LLaVA-1.5-7B variants. Despite the "-lora" repo names these are FULL merged
+# models in ORIGINAL-LLaVA format (LlavaLlamaForCausalLM, Vicuna-7B + CLIP-336).
+# They must be CONVERTED ONCE to HuggingFace format (LlavaForConditionalGeneration)
+# with code/convert_vlguard_to_hf.py, then loaded exactly like llava-hf/llava-1.5-7b-hf
+# (see interactive_llava.py). Jobs read the converted local dirs (hf) offline.
+#   mixed   = safety data MIXED into instruction tuning
+#   posthoc = safety LoRA applied AFTER instruction tuning (then merged)
+VLGUARD_VARIANTS = {
+    "mixed": {
+        "src": "ys-zong/llava-v1.5-7b-Mixed-lora",
+        "hf":  "/home/ch169788/llava_cot_eval/model_weights/llava15_vlguard_mixed_hf",
+    },
+    "posthoc": {
+        "src": "ys-zong/llava-v1.5-7b-Posthoc-lora",
+        "hf":  "/home/ch169788/llava_cot_eval/model_weights/llava15_vlguard_posthoc_hf",
+    },
+}
+# Base components used by the conversion (cache these once on the login node):
+LLAVA15_HF_BASE   = "llava-hf/llava-1.5-7b-hf"            # HF-format template (config/processor)
+LLAVA15_TEXT_ID   = "lmsys/vicuna-7b-v1.5"               # text backbone (for the converter)
+LLAVA15_VISION_ID = "openai/clip-vit-large-patch14-336"  # vision tower (for the converter)
+
 # ── Model: R1-OneVision ────────────────────────────────────────────────────────
 # R1-OneVision is a Qwen2-VL-7B model trained with GRPO for visual reasoning.
 # It produces <think>…</think> chain-of-thought followed by a direct answer.
