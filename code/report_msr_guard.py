@@ -29,6 +29,13 @@ os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ROOT = os.path.join("results", "msr_guard_eval")
 CONDITIONS = ["clean", "blur20"]
 
+# SQA utility (LLaMA-judged) lives in its own dirs from the corruption sweeps;
+# pull the MSR clean + 20%-blur numbers in so all three metrics sit in one report.
+SQA_FILES = {
+    "clean":  os.path.join("results", "sqa_noise_sweep", "judged_base_msr_clean.json"),
+    "blur20": os.path.join("results", "sqa_blur_pct", "judged_base_msr_gaussian_blur_pct_p20.json"),
+}
+
 
 def _load(path):
     if not os.path.exists(path):
@@ -41,15 +48,18 @@ def collect(cond):
     """Merge ASR + ORR aggregates for one condition; also persist aggregate.json."""
     asr = _load(os.path.join(ROOT, cond, "asr_guard.json"))
     orr = _load(os.path.join(ROOT, cond, "judged_llama_orr.json"))
+    sqa = _load(SQA_FILES.get(cond, ""))
 
     aggregate = {
         "condition": cond,
         "asr": asr,                       # full ASR aggregate (or None if missing)
         "orr": orr,                       # full ORR aggregate (or None if missing)
+        "sqa": sqa,                       # full SQA aggregate (or None if missing)
         "asr_judge": asr.get("judge") if asr else None,
         "orr_judge": orr.get("judge") if orr else None,
+        "sqa_judge": sqa.get("judge") if sqa else None,
     }
-    if asr is not None or orr is not None:
+    if asr is not None or orr is not None or sqa is not None:
         with open(os.path.join(ROOT, cond, "aggregate.json"), "w", encoding="utf-8") as f:
             json.dump(aggregate, f, indent=2, ensure_ascii=False)
 
@@ -59,8 +69,10 @@ def collect(cond):
         "xstest_orr": (orr.get("xstest", {}).get("orr_pct") if orr else None),
         "mmsa_orr":   (orr.get("mmsa", {}).get("orr_pct") if orr else None),
         "avg_orr":    (orr.get("avg_orr_pct") if orr else None),
+        "sqa_acc":    sqa.get("accuracy") if sqa else None,
         "asr_judge":  aggregate["asr_judge"],
         "orr_judge":  aggregate["orr_judge"],
+        "sqa_judge":  aggregate["sqa_judge"],
     }
 
 
@@ -71,23 +83,25 @@ def fmt(v):
 def main():
     data = {cond: collect(cond) for cond in CONDITIONS}
 
-    header = ("Condition", "ASR (Guard)", "ORR XSTest", "ORR MMSA", "ORR Avg")
+    header = ("Condition", "ASR (Guard)", "ORR XSTest", "ORR MMSA", "ORR Avg", "SQA util")
     print()
-    print("=" * 72)
-    print("  MSR-Align  ·  Llama Guard 3 Vision ASR  +  LLaMA-3 ORR judge")
-    print("=" * 72)
-    print("  %-10s %12s %12s %12s %10s" % header)
-    print("  " + "-" * 68)
+    print("=" * 84)
+    print("  MSR-Align  ·  Llama Guard 3 Vision ASR  +  LLaMA-3 ORR judge  +  LLaMA SQA")
+    print("=" * 84)
+    print("  %-10s %12s %12s %12s %10s %10s" % header)
+    print("  " + "-" * 80)
     for cond in CONDITIONS:
         m = data[cond]
-        print("  %-10s %12s %12s %12s %10s" % (
+        print("  %-10s %12s %12s %12s %10s %10s" % (
             cond, fmt(m["asr_pct"]), fmt(m["xstest_orr"]),
-            fmt(m["mmsa_orr"]), fmt(m["avg_orr"])))
-    print("=" * 72)
-    print("  ASR  = % of FigStep responses Llama Guard labels UNSAFE (lower = safer)")
-    print("  ORR  = % over-refusal on benign XSTest/MMSA  (lower = less over-refusal)")
+            fmt(m["mmsa_orr"]), fmt(m["avg_orr"]), fmt(m["sqa_acc"])))
+    print("=" * 84)
+    print("  ASR = % FigStep responses Guard labels UNSAFE (lower=safer) | "
+          "ORR = % over-refusal on benign XSTest/MMSA (lower=better)")
+    print("  SQA = % ScienceQA accuracy (higher=better, LLaMA-judged)")
     print("  ASR judge: %s" % (data["clean"]["asr_judge"] or data["blur20"]["asr_judge"] or "n/a"))
     print("  ORR judge: %s" % (data["clean"]["orr_judge"] or data["blur20"]["orr_judge"] or "n/a"))
+    print("  SQA judge: %s" % (data["clean"]["sqa_judge"] or data["blur20"]["sqa_judge"] or "n/a"))
     print()
 
     missing = [c for c in CONDITIONS
