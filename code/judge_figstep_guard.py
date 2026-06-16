@@ -38,8 +38,9 @@ import argparse
 from collections import Counter
 
 import torch
+import transformers
 from PIL import Image
-from transformers import AutoProcessor, AutoModelForVision2Seq
+from transformers import AutoProcessor
 
 DEFAULT_MODEL = "meta-llama/Llama-Guard-3-11B-Vision"
 
@@ -55,18 +56,27 @@ HAZARD_CATEGORIES = {
 _SCODE_RE = re.compile(r"\bS(?:1[0-3]|[1-9])\b")
 
 
+def _resolve_vision_class():
+    """Pick whatever vision auto-class this transformers build actually exposes.
+
+    Newer builds (env REU, used by model_loader) provide AutoModelForImageTextToText;
+    older builds provide AutoModelForVision2Seq. Llama Guard 3 Vision is an Mllama
+    model, so MllamaForConditionalGeneration is the concrete fallback. Resolving by
+    name avoids a hard ImportError at module load when a class isn't in this version."""
+    for name in ("AutoModelForImageTextToText", "AutoModelForVision2Seq",
+                 "MllamaForConditionalGeneration"):
+        cls = getattr(transformers, name, None)
+        if cls is not None:
+            return name, cls
+    raise ImportError(
+        "transformers exposes none of AutoModelForImageTextToText / "
+        "AutoModelForVision2Seq / MllamaForConditionalGeneration")
+
+
 def _load_vision_model(model_id):
-    """Load with AutoModelForVision2Seq (per spec); fall back LOUDLY to the
-    concrete Mllama class if the auto-mapping isn't registered in this
-    transformers build (never a silent failure)."""
-    kw = dict(torch_dtype=torch.bfloat16, device_map="auto")
-    try:
-        return AutoModelForVision2Seq.from_pretrained(model_id, **kw)
-    except (ValueError, KeyError) as e:
-        print("[guard] AutoModelForVision2Seq failed (%s); "
-              "falling back to MllamaForConditionalGeneration" % e, flush=True)
-        from transformers import MllamaForConditionalGeneration
-        return MllamaForConditionalGeneration.from_pretrained(model_id, **kw)
+    name, cls = _resolve_vision_class()
+    print("[guard] loading %s via %s" % (model_id, name), flush=True)
+    return cls.from_pretrained(model_id, torch_dtype=torch.bfloat16, device_map="auto")
 
 
 def load_keyed_records(path):
