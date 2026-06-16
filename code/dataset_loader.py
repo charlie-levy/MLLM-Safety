@@ -148,7 +148,12 @@ def load_xstest(split: str = "test") -> list[dict]:
             "prompt":   item["prompt"],
             "image":    image,
             "label":    "safe",
-            "metadata": {"dataset": "XSTest", "idx": str(item["idx"])},
+            "metadata": {
+                "dataset":    "XSTest",
+                "idx":        str(item["idx"]),
+                "image_path": img_path if os.path.exists(img_path) else "",
+                "label":      item.get("label", ""),   # raw dataset label, if any
+            },
         })
 
     if missing:
@@ -180,11 +185,13 @@ def load_mmsa(split: str = "test") -> list[dict]:
         idx = item["idx"]
 
         image = None
+        image_path = ""
         for img_dir in [MMSA_IMAGE_DIR, MMSA_IMAGE_DIR2]:
             for ext in ["jpeg", "jpg", "png"]:
                 path = os.path.join(img_dir, f"{idx}.{ext}")
                 if os.path.exists(path):
                     image = Image.open(path).convert("RGB")
+                    image_path = path
                     break
             if image:
                 break
@@ -197,7 +204,12 @@ def load_mmsa(split: str = "test") -> list[dict]:
             "prompt":   item["prompt"],
             "image":    image,
             "label":    "safe",
-            "metadata": {"dataset": "MMSA", "idx": str(idx)},
+            "metadata": {
+                "dataset":    "MMSA",
+                "idx":        str(idx),
+                "image_path": image_path,
+                "label":      item.get("label", ""),   # raw dataset label (e.g. "yes")
+            },
         })
 
     if missing:

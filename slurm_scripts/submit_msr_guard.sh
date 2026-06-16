@@ -56,10 +56,10 @@ BF=$(submit msrg_inf_blur20_figstep 10:00:00 "" "python code/eval_msr_guard.py -
 BO=$(submit msrg_inf_blur20_orr     12:00:00 "" "python code/eval_msr_guard.py --task orr     --blur_pct 20")
 
 # ---- judges (each depends on its own inference job) ----
-AC=$(submit msrg_asr_clean  3:00:00 "$CF" "python code/judge_figstep_guard.py results/msr_guard_eval/clean/responses_figstep.jsonl  --out_dir results/msr_guard_eval/clean")
-OC=$(submit msrg_orr_clean  3:00:00 "$CO" "python code/judge_safety_hf.py --mode orr results/msr_guard_eval/clean/responses_orr.csv")
-AB=$(submit msrg_asr_blur20 3:00:00 "$BF" "python code/judge_figstep_guard.py results/msr_guard_eval/blur20/responses_figstep.jsonl --out_dir results/msr_guard_eval/blur20")
-OB=$(submit msrg_orr_blur20 3:00:00 "$BO" "python code/judge_safety_hf.py --mode orr results/msr_guard_eval/blur20/responses_orr.csv")
+AC=$(submit msrg_asr_clean  3:00:00 "$CF" "python code/judge_figstep_guard.py results/msr_guard_eval/clean/responses_figstep.json  --out_dir results/msr_guard_eval/clean")
+OC=$(submit msrg_orr_clean  3:00:00 "$CO" "python code/judge_safety_hf.py --mode orr results/msr_guard_eval/clean/responses_orr.csv && python code/format_orr_results.py results/msr_guard_eval/clean")
+AB=$(submit msrg_asr_blur20 3:00:00 "$BF" "python code/judge_figstep_guard.py results/msr_guard_eval/blur20/responses_figstep.json --out_dir results/msr_guard_eval/blur20")
+OB=$(submit msrg_orr_blur20 3:00:00 "$BO" "python code/judge_safety_hf.py --mode orr results/msr_guard_eval/blur20/responses_orr.csv && python code/format_orr_results.py results/msr_guard_eval/blur20")
 
 echo "──────────────────────────────────────────────────────────────"
 echo "Inference:  clean(figstep=$CF orr=$CO)  blur20(figstep=$BF orr=$BO)"
