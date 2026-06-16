@@ -168,9 +168,16 @@ def write_orr_csv(records, path):
             w.writerow(row)
 
 
+def load_keyed_values(path):
+    """Read a responses_*.json (keyed by idx) back into a list of records."""
+    with open(path, encoding="utf-8") as f:
+        return list(json.load(f).values())
+
+
 def main():
     ap = argparse.ArgumentParser(description="Fresh MSR-Align inference for the Guard eval")
-    ap.add_argument("--task", required=True, choices=["figstep", "orr"])
+    ap.add_argument("--task", required=True, choices=["figstep", "orr", "xstest", "mmsa"],
+                    help="orr = XSTest+MMSA; xstest/mmsa re-run one and rebuild responses_orr.csv")
     ap.add_argument("--blur_pct", type=int, default=0,
                     help="0 = clean, else percentage blur (e.g. 20)")
     args = ap.parse_args()
@@ -190,24 +197,38 @@ def main():
     assert tag == "base+MSR", "expected base+MSR, got %r" % tag
     print("       OK: %s" % tag, flush=True)
 
+    xs_json = os.path.join(out_dir, "responses_xstest.json")
+    mm_json = os.path.join(out_dir, "responses_mmsa.json")
+
     if args.task == "figstep":
         print("\n[infer] FigStep (%s) ..." % cond, flush=True)
         recs = run_dataset(model, processor, load_figstep(), args.blur_pct, "figstep")
         write_keyed_json(recs, os.path.join(out_dir, "responses_figstep.json"))
         print("       saved %d FigStep responses -> %s" % (len(recs), out_dir), flush=True)
 
-    else:  # orr = XSTest + MMSA
-        print("\n[infer] XSTest (%s) ..." % cond, flush=True)
-        xs = run_dataset(model, processor, load_xstest(), args.blur_pct, "xstest")
-        print("\n[infer] MMSA (%s) ..." % cond, flush=True)
-        mm = run_dataset(model, processor, load_mmsa(), args.blur_pct, "mmsa")
+    else:  # orr (XSTest+MMSA) or a single ORR dataset (xstest / mmsa)
+        if args.task in ("orr", "xstest"):
+            print("\n[infer] XSTest (%s) ..." % cond, flush=True)
+            xs = run_dataset(model, processor, load_xstest(), args.blur_pct, "xstest")
+            write_keyed_json(xs, xs_json)
+        if args.task in ("orr", "mmsa"):
+            print("\n[infer] MMSA (%s) ..." % cond, flush=True)
+            mm = run_dataset(model, processor, load_mmsa(), args.blur_pct, "mmsa")
+            write_keyed_json(mm, mm_json)
 
-        write_keyed_json(xs, os.path.join(out_dir, "responses_xstest.json"))
-        write_keyed_json(mm, os.path.join(out_dir, "responses_mmsa.json"))
-        # Combined CSV (dataset column distinguishes) feeds the LLaMA ORR judge.
-        write_orr_csv(xs + mm, os.path.join(out_dir, "responses_orr.csv"))
-        print("       saved %d ORR responses (XSTest %d + MMSA %d) -> %s"
-              % (len(xs) + len(mm), len(xs), len(mm), out_dir), flush=True)
+        # Rebuild the combined CSV the LLaMA ORR judge consumes. A single-dataset
+        # re-run reuses the OTHER dataset's existing responses_*.json (fail loudly
+        # if it isn't there, so we never write a half ORR set).
+        for need, path in (("xstest", xs_json), ("mmsa", mm_json)):
+            if not os.path.exists(path):
+                raise FileNotFoundError(
+                    "responses for %s not found at %s — run --task orr (or that "
+                    "dataset) first so the combined ORR csv is complete." % (need, path))
+        xs_recs = load_keyed_values(xs_json)
+        mm_recs = load_keyed_values(mm_json)
+        write_orr_csv(xs_recs + mm_recs, os.path.join(out_dir, "responses_orr.csv"))
+        print("       rebuilt responses_orr.csv: XSTest %d + MMSA %d -> %s"
+              % (len(xs_recs), len(mm_recs), out_dir), flush=True)
 
     print("\nDONE inference: task=%s condition=%s" % (args.task, cond), flush=True)
 
