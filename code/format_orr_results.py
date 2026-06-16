@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
 format_orr_results.py — Merge ORR judge verdicts into the keyed-by-idx house format.
 

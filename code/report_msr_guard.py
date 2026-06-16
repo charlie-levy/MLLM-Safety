@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
 report_msr_guard.py — Final table + aggregates for the MSR-Align Guard eval.
 
