@@ -51,31 +51,45 @@ def _skippable(src):
     return ("vision_tower" in src) or src.endswith("rotary_emb.inv_freq")
 
 
-def to_hf_key(src, scaffold_keys):
-    """Map an original-LLaVA state-dict key to its HF scaffold key, or None."""
-    def first_present(cands):
-        for c in cands:
-            if c in scaffold_keys:
-                return c
-        return None
+def discover_layout(scaffold_keys):
+    """Find this transformers version's real Llava key prefixes (no hardcoding).
 
+    Llava key names drift across transformers versions (e.g. the VLM refactor
+    moved everything under `model.` -> `model.language_model.*`,
+    `model.multi_modal_projector.*`). We locate the prefixes by suffix so the
+    transplant adapts to whatever the installed scaffold actually uses.
+    """
+    def unique_by_suffix(suffix, what):
+        hits = sorted((k for k in scaffold_keys if k.endswith(suffix)), key=len)
+        if not hits:
+            sample = "\n  ".join(sorted(scaffold_keys)[:40])
+            raise SystemExit("[layout] no scaffold key ends with %r (%s).\n"
+                             "sample scaffold keys:\n  %s" % (suffix, what, sample))
+        return hits[0]
+    embed_key = unique_by_suffix("embed_tokens.weight", "token embeddings")
+    proj_key  = unique_by_suffix("multi_modal_projector.linear_1.weight", "mm projector")
+    head_key  = unique_by_suffix("lm_head.weight", "lm head")
+    lm_prefix   = embed_key[:-len("embed_tokens.weight")]   # e.g. 'model.language_model.'
+    proj_prefix = proj_key[:-len("linear_1.weight")]        # e.g. 'model.multi_modal_projector.'
+    return lm_prefix, proj_prefix, head_key
+
+
+def to_hf_key(src, layout):
+    """Map an original-LLaVA state-dict key to its HF scaffold key, or None."""
+    lm_prefix, proj_prefix, head_key = layout
     if src.startswith("model.mm_projector."):
         idx = src.split(".")[2]                      # '0' or '2'
         sub = "linear_1" if idx == "0" else "linear_2"
         rest = ".".join(src.split(".")[3:])          # weight / bias
-        return first_present(["multi_modal_projector.%s.%s" % (sub, rest)])
+        return proj_prefix + "%s.%s" % (sub, rest)
     if src == "model.embed_tokens.weight":
-        return first_present(["language_model.model.embed_tokens.weight",
-                              "language_model.embed_tokens.weight"])
+        return lm_prefix + "embed_tokens.weight"
     if src == "model.norm.weight":
-        return first_present(["language_model.model.norm.weight",
-                              "language_model.norm.weight"])
+        return lm_prefix + "norm.weight"
     if src == "lm_head.weight":
-        return first_present(["language_model.lm_head.weight", "lm_head.weight"])
+        return head_key
     if src.startswith("model.layers."):
-        rest = src[len("model."):]                   # layers.<i>....
-        return first_present(["language_model.model." + rest,
-                              "language_model." + rest])
+        return lm_prefix + src[len("model."):]       # layers.<i>....
     return None
 
 
@@ -113,6 +127,8 @@ def convert(variant, run_sanity=True):
         LLAVA15_HF_BASE, torch_dtype=torch.bfloat16, local_files_only=True)
     scaffold_sd = model.state_dict()
     scaffold_keys = set(scaffold_sd.keys())
+    layout = discover_layout(scaffold_keys)
+    print("  [layout] lm_prefix=%r  proj_prefix=%r  lm_head=%r" % layout, flush=True)
 
     print("[3/5] loading VLGuard original weights ...", flush=True)
     orig_sd = load_original_state_dict(src_dir)
@@ -123,8 +139,8 @@ def convert(variant, run_sanity=True):
     for src, val in orig_sd.items():
         if _skippable(src):
             continue
-        tgt = to_hf_key(src, scaffold_keys)
-        if tgt is None:
+        tgt = to_hf_key(src, layout)
+        if tgt is None or tgt not in scaffold_sd:
             unmapped.append(src)
             continue
         val = val.to(new_sd[tgt].dtype)
@@ -144,6 +160,9 @@ def convert(variant, run_sanity=True):
         if unmapped:
             print("  %d unmapped source keys (showing 20):" % len(unmapped))
             for k in unmapped[:20]:
+                print("    %s" % k)
+            print("  for reference, sample scaffold keys:")
+            for k in sorted(scaffold_keys)[:15]:
                 print("    %s" % k)
         if shape_bad:
             print("  %d shape mismatches:" % len(shape_bad))
