@@ -66,9 +66,9 @@ for V in "${VARIANTS[@]}"; do
 
     # ---- judges (afterok of their own inference) ----
     AJ=$(submit "vg_${V}_${COND}_asr" 3:00:00 "$IF" \
-         "python code/judge_figstep_guard.py ${DIR}/responses_figstep.jsonl --out_dir ${DIR}")
+         "python code/judge_figstep_guard.py ${DIR}/responses_figstep.json --out_dir ${DIR}")
     OJ=$(submit "vg_${V}_${COND}_orrj" 3:00:00 "$IO" \
-         "python code/judge_safety_hf.py --mode orr ${DIR}/responses_orr.csv")
+         "python code/judge_safety_hf.py --mode orr ${DIR}/responses_orr.csv && python code/format_orr_results.py ${DIR}")
 
     echo "${V}/${COND}: inf(fs=$IF orr=$IO) judges(asr=$AJ orr=$OJ)"
   done

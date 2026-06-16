@@ -36,16 +36,29 @@ def _load(path):
 
 
 def collect(variant, cond):
-    asr = _load(os.path.join(ROOT, variant, cond, "asr_guard.json"))
-    orr = _load(os.path.join(ROOT, variant, cond, "judged_llama_orr.json"))
+    """Merge ASR + ORR aggregates for one variant/condition; persist aggregate.json."""
+    cond_dir = os.path.join(ROOT, variant, cond)
+    asr = _load(os.path.join(cond_dir, "asr_guard.json"))
+    orr = _load(os.path.join(cond_dir, "judged_llama_orr.json"))
+
+    aggregate = {
+        "variant": variant, "condition": cond,
+        "asr": asr, "orr": orr,
+        "asr_judge": asr.get("judge") if asr else None,
+        "orr_judge": orr.get("judge") if orr else None,
+    }
+    if asr is not None or orr is not None:
+        with open(os.path.join(cond_dir, "aggregate.json"), "w", encoding="utf-8") as f:
+            json.dump(aggregate, f, indent=2, ensure_ascii=False)
+
     return {
         "asr_pct":    asr.get("asr_pct") if asr else None,
         "asr_n":      asr.get("n_total") if asr else None,
         "xstest_orr": (orr.get("xstest", {}).get("orr_pct") if orr else None),
         "mmsa_orr":   (orr.get("mmsa", {}).get("orr_pct") if orr else None),
         "avg_orr":    (orr.get("avg_orr_pct") if orr else None),
-        "asr_judge":  asr.get("judge") if asr else None,
-        "orr_judge":  orr.get("judge") if orr else None,
+        "asr_judge":  aggregate["asr_judge"],
+        "orr_judge":  aggregate["orr_judge"],
     }
 
 

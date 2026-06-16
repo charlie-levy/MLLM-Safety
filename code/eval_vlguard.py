@@ -3,17 +3,15 @@
 eval_vlguard.py — Fresh VLGuard (LLaVA-1.5-7B) inference for the Llama-Guard eval.
 
 Runs a VLGuard safety variant (mixed | posthoc) on either FigStep (ASR) or
-XSTest+MMSA (ORR), under a CLEAN or BLURRED image condition, and writes rich
-per-sample outputs that capture EVERYTHING downstream needs — IDENTICAL schema
-to eval_msr_guard.py, so the SAME judges score it:
+XSTest+MMSA (ORR), under a CLEAN or BLURRED image condition, and writes per-sample
+outputs as a JSON object KEYED BY idx — the SAME house format as eval_msr_guard.py,
+so the SAME judges score it:
 
-  --task figstep -> results/vlguard_eval/<variant>/<cond>/responses_figstep.{jsonl,csv}
-                    (idx, dataset, category, category_id, task_id, prompt,
-                     image_path, full_response)  ── fed to judge_figstep_guard.py
-  --task orr     -> results/vlguard_eval/<variant>/<cond>/responses_orr.csv
-                    (idx, dataset, category, prompt, image_path, full_response)
-                    + responses_xstest.jsonl + responses_mmsa.jsonl
-                    ── responses_orr.csv is fed to judge_safety_hf.py --mode orr
+  --task figstep -> results/vlguard_eval/<variant>/<cond>/responses_figstep.json
+                    (+ category/category_id/task_id per sample) ── ASR judge input
+  --task orr     -> results/vlguard_eval/<variant>/<cond>/responses_xstest.json
+                    + responses_mmsa.json + responses_orr.csv
+                    (responses_orr.csv feeds judge_safety_hf.py --mode orr)
 
 <cond> = "clean" when --blur_pct 0, else "blur<pct>" (e.g. blur20, blur40).
 
@@ -21,11 +19,10 @@ MODEL — these are LLaVA-1.5 (Vicuna+CLIP), NOT the LLaVA-CoT Mllama pipeline:
   * Loaded as HuggingFace LlavaForConditionalGeneration from the CONVERTED local
     dir (config.VLGUARD_VARIANTS[variant]["hf"]); run code/convert_vlguard_to_hf.py
     once first. The generate path mirrors interactive_llava.py exactly, including
-    the .to(device, bfloat16) cast that pixel_values REQUIRE on a bf16 model.
-  * max_new_tokens=1024 — LLaVA-1.5 gives a direct (non-CoT) answer, so this is
-    ample; we keep it high only to never truncate a long answer.
-  * image_path is preserved per FigStep sample so the Guard judge can later show
-    the model the ORIGINAL CLEAN image regardless of the blur condition.
+    the .to(device, bfloat16) cast that pixel_values REQUIRE on a bf16 model
+    (and a SINGLE image, not the nested-list form Mllama uses).
+  * max_new_tokens=1024 — LLaVA-1.5 answers directly (non-CoT); ample headroom.
+  * image_path is the ORIGINAL CLEAN image; blur is applied in-memory only.
 
 Run on a Newton H100 GPU node, offline. One (variant, task, blur_pct) per job.
 
@@ -52,9 +49,8 @@ from blur_utils import blur_image                                     # noqa: E4
 MAX_NEW_TOKENS = 1024   # LLaVA-1.5 answers directly; ample headroom, never truncates
 EXPECTED = {"figstep": 500, "xstest": 250, "mmsa": 428}
 
+# responses_orr.csv columns consumed by judge_safety_hf.py --mode orr.
 ORR_CSV_FIELDS = ["idx", "dataset", "category", "prompt", "image_path", "full_response"]
-FIGSTEP_CSV_FIELDS = ["idx", "dataset", "category", "category_id", "task_id",
-                      "prompt", "image_path", "full_response"]
 
 
 def load_vlguard(variant):
@@ -66,7 +62,6 @@ def load_vlguard(variant):
             "code/convert_vlguard_to_hf.py --variant %s first."
             % (variant, hf_path, variant))
     print("[load] VLGuard %s from %s ..." % (variant, hf_path), flush=True)
-    # Processor lives in the converted dir; fall back to the HF base template.
     try:
         processor = AutoProcessor.from_pretrained(hf_path)
     except Exception:
@@ -106,17 +101,24 @@ def generate_one(model, processor, image, prompt):
     return processor.decode(output_ids[0][prompt_len:], skip_special_tokens=True)
 
 
-def run_dataset(model, processor, samples, blur_pct, dataset_name):
-    """Run inference over one dataset, returning a list of rich record dicts.
+def _idx_value(raw, fallback):
+    """Return idx as int when numeric (nice keys), else the raw string."""
+    s = str(raw if raw not in (None, "") else fallback)
+    return int(s) if s.lstrip("-").isdigit() else s
 
-    Applies in-memory blur to the image actually shown to the model, but never
-    mutates the stored image_path (which keeps pointing at the clean original).
+
+def run_dataset(model, processor, samples, blur_pct, dataset_name):
+    """Run inference over one dataset, returning ordered per-sample record dicts.
+
+    Blur is applied to the image shown to the model only; image_path always keeps
+    pointing at the clean original.
     """
     n = len(samples)
     expected = EXPECTED[dataset_name.lower()]
     assert n == expected, (
         "%s: expected %d samples, got %d — aborting (counts must match)."
         % (dataset_name, expected, n))
+    is_figstep = dataset_name.lower() == "figstep"
 
     records = []
     for i, s in enumerate(samples):
@@ -128,16 +130,19 @@ def run_dataset(model, processor, samples, blur_pct, dataset_name):
         response = generate_one(model, processor, image, s["prompt"])
         assert response is not None, "null response at idx %d (%s)" % (i, dataset_name)
 
-        records.append({
-            "idx":          meta.get("idx", str(i)),
-            "dataset":      meta.get("dataset", dataset_name),
-            "category":     meta.get("category", ""),
-            "category_id":  meta.get("category_id", ""),
-            "task_id":      meta.get("task_id", ""),
-            "prompt":       s["prompt"],
-            "image_path":   meta.get("image_path", "") or "",
-            "full_response": response,
-        })
+        rec = {
+            "idx":     _idx_value(meta.get("idx"), i),
+            "dataset": meta.get("dataset", dataset_name),
+        }
+        if is_figstep:
+            rec["category"]    = meta.get("category", "")
+            rec["category_id"] = meta.get("category_id", "")
+            rec["task_id"]     = meta.get("task_id", "")
+        rec["prompt"]        = s["prompt"]
+        rec["image_path"]    = meta.get("image_path", "") or ""
+        rec["label"]         = meta.get("label") or s.get("label", "")
+        rec["full_response"] = response
+        records.append(rec)
 
         if (i + 1) % 25 == 0:
             print("    %s %d/%d" % (dataset_name, i + 1, n), flush=True)
@@ -150,18 +155,26 @@ def run_dataset(model, processor, samples, blur_pct, dataset_name):
     return records
 
 
-def write_jsonl(records, path):
+def write_keyed_json(records, path):
+    """Write {str(idx): record} preserving sample order (advisor's house format)."""
+    keyed = {}
+    for r in records:
+        key = str(r["idx"])
+        if key in keyed:
+            raise ValueError("duplicate idx key %r in %s" % (key, path))
+        keyed[key] = r
     with open(path, "w", encoding="utf-8") as f:
-        for r in records:
-            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        json.dump(keyed, f, indent=2, ensure_ascii=False)
 
 
-def write_csv(records, path, fields):
+def write_orr_csv(records, path):
     with open(path, "w", newline="", encoding="utf-8") as f:
-        w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
+        w = csv.DictWriter(f, fieldnames=ORR_CSV_FIELDS, extrasaction="ignore")
         w.writeheader()
         for r in records:
-            w.writerow(r)
+            row = dict(r)
+            row.setdefault("category", "")
+            w.writerow(row)
 
 
 def main():
@@ -188,8 +201,7 @@ def main():
     if args.task == "figstep":
         print("\n[infer] FigStep (%s) ..." % cond, flush=True)
         recs = run_dataset(model, processor, load_figstep(), args.blur_pct, "figstep")
-        write_jsonl(recs, os.path.join(out_dir, "responses_figstep.jsonl"))
-        write_csv(recs, os.path.join(out_dir, "responses_figstep.csv"), FIGSTEP_CSV_FIELDS)
+        write_keyed_json(recs, os.path.join(out_dir, "responses_figstep.json"))
         print("       saved %d FigStep responses -> %s" % (len(recs), out_dir), flush=True)
 
     else:  # orr = XSTest + MMSA
@@ -198,9 +210,9 @@ def main():
         print("\n[infer] MMSA (%s) ..." % cond, flush=True)
         mm = run_dataset(model, processor, load_mmsa(), args.blur_pct, "mmsa")
 
-        write_jsonl(xs, os.path.join(out_dir, "responses_xstest.jsonl"))
-        write_jsonl(mm, os.path.join(out_dir, "responses_mmsa.jsonl"))
-        write_csv(xs + mm, os.path.join(out_dir, "responses_orr.csv"), ORR_CSV_FIELDS)
+        write_keyed_json(xs, os.path.join(out_dir, "responses_xstest.json"))
+        write_keyed_json(mm, os.path.join(out_dir, "responses_mmsa.json"))
+        write_orr_csv(xs + mm, os.path.join(out_dir, "responses_orr.csv"))
         print("       saved %d ORR responses (XSTest %d + MMSA %d) -> %s"
               % (len(xs) + len(mm), len(xs), len(mm), out_dir), flush=True)
 
