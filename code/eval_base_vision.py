@@ -234,7 +234,7 @@ def main():
 
     # ── ScienceQA (utility) ──────────────────────────────────────────────────
     print("\n[4/4] ScienceQA (250) ...", flush=True)
-    sqa_recs = run_inference(model, processor, load_sqa(), 0, "sqa")  # always clean for utility
+    sqa_recs = run_inference(model, processor, load_sqa(), args.blur_pct, "sqa")
     write_keyed_json(sqa_recs, os.path.join(out_dir, "responses_sqa.json"))
     write_sqa_jsonl(sqa_recs, os.path.join(out_dir, "raw_sqa.jsonl"))
     sqa = compute_sqa_accuracy(sqa_recs)
