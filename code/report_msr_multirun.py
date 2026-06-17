@@ -27,13 +27,15 @@ import argparse
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-CONDITIONS = ["clean", "blur20"]
+CONDITIONS = ["clean", "blur20", "blur40"]
 
 SQA_FILES = {
     "clean":  os.path.join("results", "sqa_noise_sweep",
                            "judged_base_msr_clean.json"),
     "blur20": os.path.join("results", "sqa_blur_pct",
                            "judged_base_msr_gaussian_blur_pct_p20.json"),
+    "blur40": os.path.join("results", "sqa_blur_pct",
+                           "judged_base_msr_gaussian_blur_pct_p40.json"),
 }
 
 
