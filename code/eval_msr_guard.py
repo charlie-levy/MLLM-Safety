@@ -50,6 +50,16 @@ import torch  # noqa: E402
 from model_loader import load_model_and_processor          # noqa: E402
 from dataset_loader import load_figstep, load_xstest, load_mmsa  # noqa: E402
 from blur_utils import blur_image                            # noqa: E402
+from jpeg_utils import jpeg_image                            # noqa: E402
+from motion_blur_utils import motion_blur_image              # noqa: E402
+
+# Percentage-based corruptions selectable with --corrupt. blur stays the default
+# (--blur_pct) so existing jobs/paths are unchanged.
+CORRUPTORS = {
+    "gaussian_blur": blur_image,
+    "jpeg":          jpeg_image,
+    "motion_blur":   motion_blur_image,
+}
 
 MAX_NEW_TOKENS = 2048   # override config.MAX_NEW_TOKENS (=1024): MSR verdict is last
 EXPECTED = {"figstep": 500, "xstest": 250, "mmsa": 428}
@@ -95,11 +105,11 @@ def _idx_value(raw, fallback):
     return int(s) if s.lstrip("-").isdigit() else s
 
 
-def run_dataset(model, processor, samples, blur_pct, dataset_name):
+def run_dataset(model, processor, samples, corrupt_fn, pct, dataset_name):
     """Run inference over one dataset, returning ordered per-sample record dicts.
 
-    Blur is applied to the image shown to the model only; image_path always keeps
-    pointing at the clean original.
+    The corruption (blur/jpeg/motion_blur at `pct`%) is applied to the image shown
+    to the model only; image_path always keeps pointing at the clean original.
     """
     n = len(samples)
     expected = EXPECTED[dataset_name.lower()]
@@ -113,8 +123,8 @@ def run_dataset(model, processor, samples, blur_pct, dataset_name):
     for i, s in enumerate(samples):
         meta = s.get("metadata", {})
         image = s["image"]
-        if blur_pct > 0 and image is not None:
-            image = blur_image(image, blur_pct)
+        if pct > 0 and image is not None:
+            image = corrupt_fn(image, pct)
 
         response = generate_one(model, processor, image, s["prompt"])
         assert response is not None, "null response at idx %d (%s)" % (i, dataset_name)
@@ -179,13 +189,30 @@ def main():
     ap.add_argument("--task", required=True, choices=["figstep", "orr", "xstest", "mmsa"],
                     help="orr = XSTest+MMSA; xstest/mmsa re-run one and rebuild responses_orr.csv")
     ap.add_argument("--blur_pct", type=int, default=0,
-                    help="0 = clean, else percentage blur (e.g. 20)")
+                    help="0 = clean, else percentage gaussian blur (e.g. 20)")
+    ap.add_argument("--corrupt", type=str, default=None, choices=sorted(CORRUPTORS),
+                    help="Corruption type (overrides --blur_pct). Use with --corrupt_pct.")
+    ap.add_argument("--corrupt_pct", type=int, default=None,
+                    help="Percentage 0-100 for --corrupt (0 = clean).")
     ap.add_argument("--run_id", type=str, default="",
                     help="If set, writes to results/msr_guard_eval_run<ID>/<cond>/ "
                          "instead of results/msr_guard_eval/<cond>/")
     args = ap.parse_args()
 
-    cond = "clean" if args.blur_pct == 0 else ("blur%d" % args.blur_pct)
+    # Pick the corruption function, percentage, and condition label. blur is the
+    # default (back-compat: cond stays "clean"/"blur20"); other corruptions get
+    # their own cond like "jpeg20"/"motion_blur40".
+    if args.corrupt is not None:
+        if args.corrupt_pct is None:
+            ap.error("--corrupt requires --corrupt_pct")
+        corrupt_fn = CORRUPTORS[args.corrupt]
+        pct  = args.corrupt_pct
+        cond = "clean" if pct == 0 else ("%s%d" % (args.corrupt, pct))
+    else:
+        corrupt_fn = CORRUPTORS["gaussian_blur"]
+        pct  = args.blur_pct
+        cond = "clean" if pct == 0 else ("blur%d" % pct)
+
     base = ("msr_guard_eval_run%s" % args.run_id) if args.run_id else "msr_guard_eval"
     out_dir = os.path.join("results", base, cond)
     os.makedirs(out_dir, exist_ok=True)
@@ -206,18 +233,18 @@ def main():
 
     if args.task == "figstep":
         print("\n[infer] FigStep (%s) ..." % cond, flush=True)
-        recs = run_dataset(model, processor, load_figstep(), args.blur_pct, "figstep")
+        recs = run_dataset(model, processor, load_figstep(), corrupt_fn, pct, "figstep")
         write_keyed_json(recs, os.path.join(out_dir, "responses_figstep.json"))
         print("       saved %d FigStep responses -> %s" % (len(recs), out_dir), flush=True)
 
     else:  # orr (XSTest+MMSA) or a single ORR dataset (xstest / mmsa)
         if args.task in ("orr", "xstest"):
             print("\n[infer] XSTest (%s) ..." % cond, flush=True)
-            xs = run_dataset(model, processor, load_xstest(), args.blur_pct, "xstest")
+            xs = run_dataset(model, processor, load_xstest(), corrupt_fn, pct, "xstest")
             write_keyed_json(xs, xs_json)
         if args.task in ("orr", "mmsa"):
             print("\n[infer] MMSA (%s) ..." % cond, flush=True)
-            mm = run_dataset(model, processor, load_mmsa(), args.blur_pct, "mmsa")
+            mm = run_dataset(model, processor, load_mmsa(), corrupt_fn, pct, "mmsa")
             write_keyed_json(mm, mm_json)
 
         # Rebuild the combined CSV the LLaMA ORR judge consumes. A single-dataset

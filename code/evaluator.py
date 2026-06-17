@@ -64,6 +64,9 @@ class Evaluator:
         if corruption_type == "jpeg_pct":
             from jpeg_utils import jpeg_image
             return jpeg_image(img, severity)
+        if corruption_type == "motion_blur_pct":
+            from motion_blur_utils import motion_blur_image
+            return motion_blur_image(img, severity)
         if corruption_type == "brightness_pct":
             from brightness_utils import brightness_image
             return brightness_image(img, severity)

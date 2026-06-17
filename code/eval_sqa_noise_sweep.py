@@ -35,7 +35,7 @@ parser.add_argument("--noise_pct", type=int, default=None,
 parser.add_argument("--blur_pct", type=int, default=None,
                     help="Percentage blur 0-100 (overrides severity/noise_type)")
 parser.add_argument("--corrupt", type=str, default=None,
-                    choices=["jpeg", "brightness", "pixelate"],
+                    choices=["jpeg", "brightness", "pixelate", "motion_blur"],
                     help="Realistic corruption name (use with --corrupt_pct)")
 parser.add_argument("--corrupt_pct", type=int, default=None,
                     help="Percentage 0-100 for --corrupt")
