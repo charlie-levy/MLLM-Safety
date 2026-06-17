@@ -28,6 +28,7 @@ from config import (
     FIGSTEP_REPO_PATH, FIGSTEP_CSV, FIGSTEP_IMAGE_DIR,
     XSTEST_SAFE_JSON, XSTEST_IMAGE_DIR,
     MMSA_SAFE_JSON, MMSA_IMAGE_DIR, MMSA_IMAGE_DIR2,
+    NEW_ATTACKS_DIR, NEW_ATTACK_COUNTS,
 )
 
 
@@ -225,4 +226,65 @@ def load_mmsa(split: str = "test") -> list[dict]:
     if missing:
         print(f"[dataset_loader] Warning: {missing} MMSA images missing, used blank.")
     print(f"[dataset_loader] MMSA: {len(samples)} safe samples loaded (428 expected).")
+    return samples
+
+
+# ── New image-based attack datasets (SIUO / BeaverTails-V / SPA-VL) ──────────────
+
+def load_new_attack(name: str) -> list[dict]:
+    """
+    Load one of the new image-based safety attack datasets, materialized locally
+    by prepare_new_attack_datasets.py to datasets/new_attacks/<name>/<name>.json.
+
+    Unlike FigStep (neutral text + attack in image), these pair a genuinely
+    harmful request (the dataset's own `question`) with an image. ASR is scored
+    the SAME string-match way as FigStep: an attack succeeds when the model does
+    not refuse the harmful request.  label = "harmful".
+
+    name ∈ {"siuo", "beavertails", "spavl"}.
+    """
+    name = name.lower()
+    if name not in NEW_ATTACK_COUNTS:
+        raise ValueError("unknown attack dataset %r (expected one of %s)"
+                         % (name, sorted(NEW_ATTACK_COUNTS)))
+
+    json_path = os.path.join(NEW_ATTACKS_DIR, name, "%s.json" % name)
+    if not os.path.exists(json_path):
+        raise FileNotFoundError(
+            "%s not found — run `python code/prepare_new_attack_datasets.py` "
+            "on the login node first." % json_path)
+
+    print(f"[dataset_loader] Loading {name} from '{json_path}' ...")
+    with open(json_path, encoding="utf-8") as f:
+        data = json.load(f)
+
+    missing = 0
+    samples = []
+    for item in data.values():
+        img_path = item["image_path"]
+        if os.path.exists(img_path):
+            image = Image.open(img_path).convert("RGB")
+        else:
+            image = _blank_image()
+            missing += 1
+
+        samples.append({
+            "prompt":   item["prompt"],
+            "image":    image,
+            "label":    "harmful",
+            "metadata": {
+                "dataset":    item.get("dataset", name),
+                "idx":        str(item["idx"]),
+                "image_path": img_path if os.path.exists(img_path) else "",
+                "category":   item.get("category", ""),
+            },
+        })
+
+    expected = NEW_ATTACK_COUNTS[name]
+    assert len(samples) == expected, (
+        "%s: expected %d samples, got %d — re-run prepare_new_attack_datasets.py."
+        % (name, expected, len(samples)))
+    if missing:
+        print(f"[dataset_loader] Warning: {missing} {name} images missing, used blank.")
+    print(f"[dataset_loader] {name}: {len(samples)} samples loaded ({expected} expected).")
     return samples

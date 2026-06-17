@@ -77,6 +77,16 @@ MMSA_SAFE_JSON  = "/home/ch169788/MMSA/mmsafeaware_safe.json"
 MMSA_IMAGE_DIR  = "/home/ch169788/MMSA/images"    # images 1-1100
 MMSA_IMAGE_DIR2 = "/home/ch169788/MMSA/images2"   # images 2001+
 
+# New image-based safety attack datasets (materialized locally by
+# prepare_new_attack_datasets.py, then loaded offline like FigStep).
+#   SIUO          sinwang/SIUO                 167  (siuo_gen.json + images)
+#   BeaverTails-V PKU-Alignment/BeaverTails-V  1180 (20 categories, evaluation split)
+#   SPA-VL        sqrti/SPA-VL                 265  (test config, 'harm' split)
+NEW_ATTACKS_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "datasets", "new_attacks")
+NEW_ATTACK_COUNTS = {"siuo": 167, "beavertails": 1180, "spavl": 265}
+
 # ── Generation Hyperparameters ─────────────────────────────────────────────────
 # Greedy decoding (DO_SAMPLE=False, TEMPERATURE irrelevant) is standard for
 # safety evaluations because it makes results deterministic and reproducible.
