@@ -39,6 +39,13 @@ for _v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
            "NUMEXPR_NUM_THREADS", "USE_TORCH", "USE_TF"):
     os.environ.setdefault(_v, "1" if "NUM_THREADS" in _v else "0")
 
+# The login node's RLIMIT_NPROC + low mem make the Rust xet / hf_transfer download
+# backends abort ("memory allocation of N bytes failed", Rust backtrace). FORCE the
+# plain single-threaded Python downloader. Must be set before importing huggingface_hub.
+os.environ["HF_HUB_DISABLE_XET"] = "1"
+os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "0"
+os.environ["HF_XET_DISABLE"] = "1"
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
