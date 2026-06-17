@@ -2,7 +2,7 @@
 # ============================================================================
 # submit_all_missing.sh — fill every eval gap for the paper table
 #
-# 57 total jobs across 10 sections:
+# 53 total jobs across 9 sections:
 #
 #   A. Base  ASR clean/blur20/blur40  (string-match, eval_figstep_noise_sweep)
 #   B. TIS   ASR clean/blur20/blur40  (string-match, eval_figstep_noise_sweep)
@@ -13,7 +13,13 @@
 #   G. Llama-3.2-11B-Vision sev 0-5   (string-match, eval_base_vision)
 #   H. VLGuard figstep ASR x2 variants x3 cond  (Guard judge, eval_vlguard)
 #   I. VLGuard ORR       x2 variants x3 cond    (LLaMA judge, eval_vlguard)
-#   J. VLGuard SQA clean x2 variants            (LLaMA judge, eval_vlguard)
+#
+# ALREADY VALID — do NOT re-run:
+#   VLGuard SQA (mixed=63.6%, posthoc=64.4%):
+#     results/vlguard_eval/mixed/clean/judged_vlguard_mixed_sqa.json
+#     results/vlguard_eval/posthoc/clean/judged_vlguard_posthoc_sqa.json
+#   TIS/MSR/SAGE ORR blur p20-p80: results/orr_blur_pct/
+#   TIS/MSR/SAGE SQA blur data:    results/sqa_blur_pct/
 #
 # DO NOT re-submit:
 #   MSR clean+blur20 multirun: already running (jobs 667663-667686)
@@ -191,35 +197,17 @@ for V in mixed posthoc; do
   done
 done
 
-# ─────────────────────────────────────────────────────────────────────────────
-# J. VLGuard SQA clean  (LLaMA judge, clean only)
-# Output: results/vlguard_eval/<variant>/clean/raw_vlguard_<variant>_sqa.jsonl
-#         results/vlguard_eval/<variant>/clean/judged_vlguard_<variant>_sqa.json
-# ─────────────────────────────────────────────────────────────────────────────
-echo ""
-echo "--- J. VLGuard SQA ---"
-for V in mixed posthoc; do
-  DIR="results/vlguard_eval/${V}/clean"
-  JSONL="${DIR}/raw_vlguard_${V}_sqa.jsonl"
-
-  IS=$(submit "vg_${V}_sqa_inf" 4:00:00 "" \
-    "python code/eval_vlguard.py --variant ${V} --task sqa --blur_pct 0")
-
-  submit "vg_${V}_sqa_jdg" 3:00:00 "$IS" \
-    "python code/judge_sqa_utility_hf.py ${JSONL}"
-
-  echo "  vg_${V} sqa: inf=${IS}"
-done
-
 echo ""
 echo "======================================================================"
-echo "All 57 gap-fill jobs submitted."
+echo "All 53 gap-fill jobs submitted."
 echo ""
 echo "Watch:   squeue -u \$USER"
 echo ""
-echo "When MSR multirun (clean+blur20+blur40) all done:"
-echo "  python code/report_msr_multirun.py"
+echo "When MSR multirun (clean+blur20+blur40) all done:  python code/report_msr_multirun.py"
+echo "When VLGuard all done:                             python code/report_vlguard.py"
 echo ""
-echo "When VLGuard all done:"
-echo "  python code/report_vlguard.py"
+echo "Already valid (no re-run needed):"
+echo "  VLGuard SQA: results/vlguard_eval/{mixed,posthoc}/clean/judged_vlguard_*_sqa.json"
+echo "  TIS/MSR/SAGE ORR p20-p80: results/orr_blur_pct/"
+echo "  TIS/MSR/SAGE SQA blur:    results/sqa_blur_pct/"
 echo "======================================================================"
