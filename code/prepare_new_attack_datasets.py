@@ -27,7 +27,6 @@ Output (committed-friendly layout):
     datasets/new_attacks/<ds>/<ds>.json   keyed by idx:
         { "<idx>": {idx, dataset, prompt, image_path, category, label:"harmful"} }
 """
-import io
 import os
 import sys
 import json
@@ -51,7 +50,6 @@ os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pyarrow.parquet as pq           # noqa: E402
 import pyarrow                          # noqa: E402
-from PIL import Image                   # noqa: E402
 from huggingface_hub import hf_hub_download, snapshot_download  # noqa: E402
 
 pyarrow.set_cpu_count(1)
@@ -84,18 +82,36 @@ def _fresh_dir(ds):
     return d, img
 
 
-def _save_image(cell, path):
-    """cell is an HF Image value read from parquet: {'bytes':..., 'path':...} or raw bytes."""
+def _ext_from_bytes(data: bytes) -> str:
+    """Detect image format from magic bytes (no decode). Falls back to png;
+    PIL.Image.open reads by content at load time, so the extension is cosmetic."""
+    if data[:8].startswith(b"\x89PNG"):                       return "png"
+    if data[:2] == b"\xff\xd8":                               return "jpg"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":         return "webp"
+    if data[:6] in (b"GIF87a", b"GIF89a"):                    return "gif"
+    if data[:2] == b"BM":                                     return "bmp"
+    return "png"
+
+
+def _save_image(cell, path_noext: str) -> str:
+    """Write the ORIGINAL compressed image bytes straight to disk — NO decode, so
+    peak memory is the compressed size, not a full bitmap (the login node's memory
+    cap can't decode large images). Decoding happens later at eval time on a GPU
+    node. `cell` is an HF Image value: {'bytes':..., 'path':...} or raw bytes.
+    Returns the final path (with detected extension)."""
     if isinstance(cell, dict):
         data = cell.get("bytes")
-        if data is None and cell.get("path") and os.path.exists(cell["path"]):
-            Image.open(cell["path"]).convert("RGB").save(path)
-            return
+        if not data and cell.get("path") and os.path.exists(cell["path"]):
+            with open(cell["path"], "rb") as fh:
+                data = fh.read()
     else:
         data = cell
     if not data:
-        raise ValueError("empty image bytes for %s" % path)
-    Image.open(io.BytesIO(data)).convert("RGB").save(path)
+        raise ValueError("empty image bytes for %s" % path_noext)
+    path = "%s.%s" % (path_noext, _ext_from_bytes(data))
+    with open(path, "wb") as f:
+        f.write(data)
+    return path
 
 
 def _write_json(ds, records):
@@ -128,8 +144,9 @@ def prepare_siuo():
     for it in items:
         idx = it["question_id"]
         src = os.path.join(src_img_root, it["image"])
-        dst = os.path.join(img_dir, "%s.png" % idx)
-        Image.open(src).convert("RGB").save(dst)
+        ext = (os.path.splitext(it["image"])[1].lstrip(".") or "png").lower()
+        dst = os.path.join(img_dir, "%s.%s" % (idx, ext))
+        shutil.copyfile(src, dst)        # raw copy, no decode
         records.append({
             "idx": idx, "dataset": "SIUO", "prompt": it["question"],
             "image_path": os.path.abspath(dst),
@@ -150,11 +167,10 @@ def prepare_beavertails():
         tbl = pq.read_table(pqf, use_threads=False).to_pylist()
         for i, row in enumerate(tbl):
             idx = "%s_%03d" % (cat, i)
-            dst = os.path.join(img_dir, "%s.png" % idx)
-            _save_image(row["image"], dst)
+            saved = _save_image(row["image"], os.path.join(img_dir, idx))
             records.append({
                 "idx": idx, "dataset": "BeaverTails-V", "prompt": row["question"],
-                "image_path": os.path.abspath(dst),
+                "image_path": os.path.abspath(saved),
                 "category": row.get("category", cat), "label": "harmful",
             })
         print("    %-40s %4d" % (cat, len(tbl)), flush=True)
@@ -171,12 +187,11 @@ def prepare_spavl():
     records = []
     for i, row in enumerate(tbl):
         idx = "spavl_%04d" % i
-        dst = os.path.join(img_dir, "%s.png" % idx)
-        _save_image(row["image"], dst)
+        saved = _save_image(row["image"], os.path.join(img_dir, idx))
         cat = row.get("class1") or row.get("class2") or ""
         records.append({
             "idx": idx, "dataset": "SPA-VL", "prompt": row["question"],
-            "image_path": os.path.abspath(dst),
+            "image_path": os.path.abspath(saved),
             "category": cat, "label": "harmful",
         })
     _write_json("spavl", records)
