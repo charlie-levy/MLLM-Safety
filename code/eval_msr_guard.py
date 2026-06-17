@@ -180,10 +180,14 @@ def main():
                     help="orr = XSTest+MMSA; xstest/mmsa re-run one and rebuild responses_orr.csv")
     ap.add_argument("--blur_pct", type=int, default=0,
                     help="0 = clean, else percentage blur (e.g. 20)")
+    ap.add_argument("--run_id", type=str, default="",
+                    help="If set, writes to results/msr_guard_eval_run<ID>/<cond>/ "
+                         "instead of results/msr_guard_eval/<cond>/")
     args = ap.parse_args()
 
     cond = "clean" if args.blur_pct == 0 else ("blur%d" % args.blur_pct)
-    out_dir = os.path.join("results", "msr_guard_eval", cond)
+    base = ("msr_guard_eval_run%s" % args.run_id) if args.run_id else "msr_guard_eval"
+    out_dir = os.path.join("results", base, cond)
     os.makedirs(out_dir, exist_ok=True)
 
     print("=" * 80)
