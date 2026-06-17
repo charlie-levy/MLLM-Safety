@@ -40,6 +40,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import torch  # noqa: E402
+from PIL import Image                                                   # noqa: E402
 from transformers import AutoProcessor, LlavaForConditionalGeneration  # noqa: E402
 
 from config import VLGUARD_VARIANTS, LLAVA15_HF_BASE                  # noqa: E402
@@ -47,7 +48,8 @@ from dataset_loader import load_figstep, load_xstest, load_mmsa       # noqa: E4
 from blur_utils import blur_image                                     # noqa: E402
 
 MAX_NEW_TOKENS = 1024   # LLaVA-1.5 answers directly; ample headroom, never truncates
-EXPECTED = {"figstep": 500, "xstest": 250, "mmsa": 428}
+EXPECTED = {"figstep": 500, "xstest": 250, "mmsa": 428, "sqa": 250}
+SQA_JSON = "datasets/scienceqa_250.json"
 
 # responses_orr.csv columns consumed by judge_safety_hf.py --mode orr.
 ORR_CSV_FIELDS = ["idx", "dataset", "category", "prompt", "image_path", "full_response"]
@@ -183,11 +185,41 @@ def load_keyed_values(path):
         return list(json.load(f).values())
 
 
+def load_sqa():
+    """Load ScienceQA-250 from the project-root JSON (same format eval_sqa_noise_sweep uses)."""
+    with open(SQA_JSON, encoding="utf-8") as f:
+        data = json.load(f)
+    samples = []
+    for key in sorted(data.keys(), key=lambda x: int(x)):
+        item = data[key]
+        samples.append({
+            "prompt":   item["prompt"],
+            "image":    Image.open(item["image_path"]).convert("RGB"),
+            "label":    item["label"],
+            "metadata": item,
+        })
+    assert len(samples) == 250, "ScienceQA: expected 250 samples, got %d" % len(samples)
+    return samples
+
+
+def write_sqa_jsonl(records, path):
+    """Write JSONL in the format judge_sqa_utility_hf.py expects."""
+    with open(path, "w", encoding="utf-8") as f:
+        for r in records:
+            f.write(json.dumps({
+                "idx":      r["idx"],
+                "prompt":   r["prompt"],
+                "label":    r["label"],
+                "response": r["full_response"],
+            }) + "\n")
+
+
 def main():
     ap = argparse.ArgumentParser(description="Fresh VLGuard (LLaVA-1.5) inference for the Guard eval")
     ap.add_argument("--variant", required=True, choices=sorted(VLGUARD_VARIANTS))
-    ap.add_argument("--task", required=True, choices=["figstep", "orr", "xstest", "mmsa"],
-                    help="orr = XSTest+MMSA; xstest/mmsa re-run one and rebuild responses_orr.csv")
+    ap.add_argument("--task", required=True,
+                    choices=["figstep", "orr", "xstest", "mmsa", "sqa"],
+                    help="orr = XSTest+MMSA; xstest/mmsa re-run one; sqa = ScienceQA utility (clean only)")
     ap.add_argument("--blur_pct", type=int, default=0,
                     help="0 = clean, else percentage blur (e.g. 20, 40)")
     args = ap.parse_args()
@@ -213,6 +245,15 @@ def main():
         recs = run_dataset(model, processor, load_figstep(), args.blur_pct, "figstep")
         write_keyed_json(recs, os.path.join(out_dir, "responses_figstep.json"))
         print("       saved %d FigStep responses -> %s" % (len(recs), out_dir), flush=True)
+
+    elif args.task == "sqa":
+        print("\n[infer] ScienceQA-250 (clean only — utility metric) ...", flush=True)
+        sqa_recs = run_dataset(model, processor, load_sqa(), 0, "sqa")
+        write_keyed_json(sqa_recs, os.path.join(out_dir, "responses_sqa.json"))
+        jsonl_path = os.path.join(out_dir, "raw_vlguard_%s_sqa.jsonl" % args.variant)
+        write_sqa_jsonl(sqa_recs, jsonl_path)
+        print("       saved %d SQA responses -> %s" % (len(sqa_recs), out_dir), flush=True)
+        print("       JSONL for judge: %s" % jsonl_path, flush=True)
 
     else:  # orr (XSTest+MMSA) or a single ORR dataset (xstest / mmsa)
         if args.task in ("orr", "xstest"):
