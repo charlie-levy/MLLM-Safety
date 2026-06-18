@@ -34,12 +34,16 @@ OUT = os.path.join("results", "collected")
 
 # (heading, report script, summary json it writes)
 REPORTS = [
-    ("MSR-Align — Gaussian-blur multirun (clean / blur20 / blur40)",
+    ("MSR-Align — Gaussian-blur multirun (clean / blur20 / blur40), 3-run mean+/-std",
      "report_msr_multirun.py", "results/msr_guard_multirun_summary.json"),
     ("Task 1 — MSR-Align under JPEG + motion blur (@20/40)",
      "report_msr_corruptions.py", "results/msr_corruptions_summary.json"),
     ("Task 2 — SIUO / SPA-VL / BeaverTails ASR (base vs TIS)",
      "report_new_attacks.py", "results/new_attacks/new_attacks_summary.json"),
+    ("Base — Llama-3.2-11B-Vision-Instruct (no safety, string-match) severity 0-5",
+     "report_base_vision.py", "results/base_vision_eval/summary.json"),
+    ("VLGuard — LLaVA-1.5-7B mixed/posthoc (Llama Guard ASR + LLaMA ORR)",
+     "report_vlguard.py", "results/vlguard_eval/summary.json"),
 ]
 
 
@@ -107,6 +111,34 @@ def gather_full_data():
         copy_in("results/sqa_blur_pct/judged_base_msr_gaussian_blur_pct_p%d.json" % p,
                 os.path.join(mb, "sqa", "judged_base_msr_gaussian_blur_pct_p%d.json" % p))
 
+    # ── Base Llama-3.2-11B-Vision-Instruct (no safety; string-match; sev 0-5) ──
+    copy_in("results/base_vision_eval", os.path.join(OUT, "base_vision"))
+
+    # ── VLGuard LLaVA-1.5-7B (mixed / posthoc): Guard ASR + LLaMA ORR + SQA ────
+    copy_in("results/vlguard_eval", os.path.join(OUT, "vlguard"))
+
+    # ── A few example images + prompts from the three new attack datasets ─────
+    ex = os.path.join(OUT, "dataset_examples")
+    for ds in ("siuo", "spavl", "beavertails"):
+        djson = os.path.join("datasets", "new_attacks", ds, "%s.json" % ds)
+        if not os.path.exists(djson):
+            print("  [skip missing] %s" % djson)
+            continue
+        with open(djson, encoding="utf-8") as f:
+            items = list(json.load(f).values())[:3]
+        dst = os.path.join(ex, ds)
+        os.makedirs(dst, exist_ok=True)
+        meta = []
+        for it in items:
+            ip = it.get("image_path", "")
+            if ip and os.path.exists(ip):
+                shutil.copy2(ip, os.path.join(dst, os.path.basename(ip)))
+            meta.append({"idx": it.get("idx"), "image": os.path.basename(ip),
+                         "prompt": it.get("prompt", ""), "category": it.get("category", "")})
+        with open(os.path.join(dst, "examples.json"), "w", encoding="utf-8") as f:
+            json.dump(meta, f, indent=2, ensure_ascii=False)
+        print("  examples     %s (%d imgs)" % (ds, len(meta)))
+
 
 def _rows_from_summaries():
     """Flatten the three summary JSONs into (group, item, model, metric, value) rows."""
@@ -136,7 +168,26 @@ def _rows_from_summaries():
                                  metric + "_std", val.get("std")))
                 else:
                     rows.append(("msr_align_blur", cond, "base+MSR", metric, val))
+
+    # Base-vision + VLGuard summaries vary in shape — generic dotted-path flatten.
+    for group, path in (("base_vision", "results/base_vision_eval/summary.json"),
+                        ("vlguard",     "results/vlguard_eval/summary.json")):
+        s = _load(path)
+        if s:
+            _flatten_generic(group, s, rows)
     return rows
+
+
+def _flatten_generic(group, obj, rows, prefix=""):
+    """Append (group, dotted_path, '', '', value) rows for every leaf in obj."""
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            _flatten_generic(group, v, rows, ("%s.%s" % (prefix, k)) if prefix else str(k))
+    elif isinstance(obj, list):
+        for i, v in enumerate(obj):
+            _flatten_generic(group, v, rows, "%s[%d]" % (prefix, i))
+    else:
+        rows.append((group, prefix, "", "", obj))
 
 
 def _load(path):
