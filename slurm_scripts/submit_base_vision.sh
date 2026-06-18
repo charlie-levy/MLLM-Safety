@@ -1,13 +1,23 @@
 #!/bin/bash
 # ============================================================================
 # Baseline eval: meta-llama/Llama-3.2-11B-Vision-Instruct (no safety, no CoT)
-# FigStep ASR + XSTest/MMSA ORR + ScienceQA utility, blur_pct 0/20/40/60/80/100
-# (= severity levels 0-5). All metrics are string-matching, no judge jobs.
-# One job per blur level (model loaded once, all 4 datasets run in sequence).
+# FigStep ASR + XSTest/MMSA ORR + ScienceQA utility for ONE blur level.
+# All metrics string-matching, no judge jobs.
 #
-#   bash slurm_scripts/submit_base_vision.sh
-# When done pull results and run:
-#   python code/report_base_vision.py
+# SAFETY MODEL (read this):
+#   * Runs ONE condition per call — no 6-way / 57-way fan-out.
+#   * Submits to the FREE 'preemptable' partition (GPU billed 0.0 -> does NOT
+#     draw down the course GPU-hour pool). Jobs CAN be preempted; if so, just
+#     re-run the same command (free).
+#   * A CPU-only preflight (code/preflight.py) must PASS before anything is
+#     submitted — catches wrong dataset counts / missing weights for 0 GPU cost.
+#   * Tight --time so a hung job dies fast instead of sitting on a node.
+#
+#   conda activate REU   # preflight needs pandas/PIL from the env
+#   bash slurm_scripts/submit_base_vision.sh 0      # clean
+#   bash slurm_scripts/submit_base_vision.sh 20     # blur20
+#   ... one at a time: 0 20 40 60 80 100
+# When all six are done:  python code/report_base_vision.py results/base_vision_eval
 # ============================================================================
 set -euo pipefail
 
@@ -15,11 +25,24 @@ REPO=/home/ch169788/llava_cot_eval
 cd "$REPO"
 mkdir -p logs
 
-# Check model is cached before submitting
-if [ ! -d "$HOME/.cache/huggingface/hub/models--meta-llama--Llama-3.2-11B-Vision-Instruct" ]; then
-  echo "ERROR: meta-llama/Llama-3.2-11B-Vision-Instruct not found in HF cache."
-  echo "Download it first on the login node:"
-  echo "  HF_HUB_DISABLE_XET=1 HF_HUB_ENABLE_HF_TRANSFER=0 hf download meta-llama/Llama-3.2-11B-Vision-Instruct --max-workers 1"
+PCT="${1:-}"
+if [ -z "$PCT" ]; then
+  echo "Usage: bash slurm_scripts/submit_base_vision.sh <blur_pct: 0|20|40|60|80|100>"
+  echo "Runs ONE condition on the FREE preemptable partition. Run them one at a time."
+  exit 1
+fi
+case "$PCT" in
+  0|20|40|60|80|100) ;;
+  *) echo "ERROR: blur_pct must be one of 0 20 40 60 80 100 (got '$PCT')"; exit 1 ;;
+esac
+if [ "$PCT" -eq 0 ]; then COND="clean"; else COND="blur${PCT}"; fi
+
+# ---- Preflight: CPU only, 0 GPU-hours. No submit unless it passes. ----
+echo "Running preflight (CPU, 0 GPU-hours) ..."
+if ! OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \
+     python code/preflight.py --eval base_vision --blur_pct "$PCT"; then
+  echo ""
+  echo "PREFLIGHT FAILED — nothing submitted. Fix the issues above and retry."
   exit 1
 fi
 
@@ -34,30 +57,19 @@ export HF_HUB_ENABLE_HF_TRANSFER=0
 export OPENBLAS_NUM_THREADS=1
 cd /home/ch169788/llava_cot_eval'
 
-COMMON="--partition=normal --gres=gpu:nvidia_h100_pcie:1 --mem=80G --exclude=evc42"
+# FREE partition (GPU billed 0.0). H100 = fastest = least time exposed to preemption.
+# Still exclude evc42 (bad node). Tight 4h cap for a ~2h job.
+COMMON="--partition=preemptable --qos=preemptable --gres=gpu:nvidia_h100_pcie:1 --mem=80G --exclude=evc42"
 
-submit() {
-  local name="$1" tlimit="$2" cmd="$3"
-  sbatch --parsable $COMMON --job-name="$name" --time="$tlimit" \
-    --output="logs/${name}.log" --wrap="${ENVBLOCK}
-${cmd} || exit 1"
-}
+JID=$(sbatch --parsable $COMMON --job-name="bv_${COND}" --time=04:00:00 \
+  --output="logs/bv_${COND}.log" --wrap="${ENVBLOCK}
+python code/eval_base_vision.py --blur_pct ${PCT} || exit 1")
 
+echo ""
 echo "──────────────────────────────────────────────────────────────"
-echo "  Submitting base Vision-Instruct eval (blur_pct 0/20/40/60/80/100)"
-echo "──────────────────────────────────────────────────────────────"
-
-# Each job runs all 4 datasets: FigStep(500)+XSTest(250)+MMSA(428)+SQA(250) = 1428 samples
-# Estimated ~3-4h per job on H100 at ~6 samples/min
-
-for PCT in 0 20 40 60 80 100; do
-  if [ "$PCT" -eq 0 ]; then COND="clean"; else COND="blur${PCT}"; fi
-  JID=$(submit "bv_${COND}" 6:00:00 \
-       "python code/eval_base_vision.py --blur_pct ${PCT}")
-  echo "  blur_pct=${PCT} (${COND}): job=${JID}"
-done
-
-echo "──────────────────────────────────────────────────────────────"
-echo "Watch:  squeue -u \$USER | grep bv_"
-echo "When done, pull and run:  python code/report_base_vision.py"
+echo "  Submitted bv_${COND}: job=${JID}"
+echo "  partition=preemptable (FREE, billed 0.0)  ·  time cap 4h"
+echo "  Watch:    squeue -u \$USER | grep bv_${COND}"
+echo "  Log:      tail -f logs/bv_${COND}.log"
+echo "  Preempted? Re-run:  bash slurm_scripts/submit_base_vision.sh ${PCT}"
 echo "──────────────────────────────────────────────────────────────"
