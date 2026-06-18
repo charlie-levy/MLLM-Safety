@@ -10,7 +10,7 @@ mkdir -p logs
 
 for CORR in jpeg brightness pixelate; do
   sbatch --job-name="judge_${CORR}" \
-         --partition=normal \
+         --partition=preemptable --qos=preemptable \
          --gres=gpu:nvidia_h100_pcie:1 \
          --mem=64G \
          --time=4:00:00 \

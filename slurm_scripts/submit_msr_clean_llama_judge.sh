@@ -13,7 +13,7 @@ cd /home/ch169788/llava_cot_eval
 mkdir -p logs
 
 sbatch --job-name="msr_clean_llama" \
-       --partition=normal \
+       --partition=preemptable --qos=preemptable \
        --gres=gpu:nvidia_h100_pcie:1 \
        --mem=80G \
        --time=4:00:00 \

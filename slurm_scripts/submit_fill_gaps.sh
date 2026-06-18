@@ -11,7 +11,7 @@ cd /home/ch169788/llava_cot_eval
 mkdir -p logs
 
 submit () {  # $1=jobname $2=logname $3=hours $4=args
-  sbatch --job-name="$1" --partition=normal --gres=gpu:nvidia_h100_pcie:1 \
+  sbatch --job-name="$1" --partition=preemptable --qos=preemptable --gres=gpu:nvidia_h100_pcie:1 \
          --mem=64G --time="$3:00:00" --exclude=evc42 --output="logs/$2.log" --wrap="
 source /apps/anaconda/anaconda-2024.10/etc/profile.d/conda.sh
 conda activate REU

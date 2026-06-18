@@ -9,7 +9,7 @@ cd /home/ch169788/llava_cot_eval
 mkdir -p logs
 
 sbatch --job-name="tis_fig_clean" \
-       --partition=normal \
+       --partition=preemptable --qos=preemptable \
        --gres=gpu:nvidia_h100_pcie:1 \
        --mem=64G \
        --time=2:00:00 \

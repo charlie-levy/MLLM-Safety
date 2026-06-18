@@ -13,7 +13,7 @@ mkdir -p logs
 
 submit () {  # $1=jobname  $2=logname  $3=python args
   sbatch --job-name="$1" \
-         --partition=normal \
+         --partition=preemptable --qos=preemptable \
          --gres=gpu:nvidia_h100_pcie:1 \
          --mem=64G \
          --time=4:00:00 \
