@@ -237,7 +237,7 @@ def main():
     print("  size: %s" % (size or "?"))
     print("Pull to laptop:")
     print("  rsync -avz <user>@newton:%s/ \\" % os.path.abspath(OUT))
-    print("    /Users/charlielevy/Desktop/REU/llava_cot_eval/paper_results/")
+    print("    /Users/charlielevy/Desktop/REU/llava_cot_eval/results_6_18/")
     print("=" * 70)
 
 
