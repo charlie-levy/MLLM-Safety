@@ -41,7 +41,8 @@ export HF_HUB_ENABLE_HF_TRANSFER=0
 export OPENBLAS_NUM_THREADS=1
 cd /home/ch169788/llava_cot_eval'
 
-COMMON="--partition=normal --gres=gpu:nvidia_h100_pcie:1 --mem=80G --exclude=evc42"
+# FREE preemptable partition (GPU billed 0.0 — does NOT drain the cohort pool).
+COMMON="--partition=preemptable --qos=preemptable --gres=gpu:nvidia_h100_pcie:1 --mem=80G --exclude=evc42"
 
 # submit <jobname> <timelimit> <dependency-jobid-or-empty> <python-command> -> echoes new job id
 submit() {
