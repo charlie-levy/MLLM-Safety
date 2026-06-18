@@ -37,25 +37,35 @@ def main():
     print()
     print("=" * 78)
     print("  Base Llama-3.2-11B-Vision FigStep ASR — string-match vs Llama Guard 3")
-    print("=" * 78)
-    print("  %-12s  %-18s  %-18s  %s" % (
-        "Severity", "ASR string-match", "ASR Llama Guard", "Guard unsafe/total"))
-    print("  " + "-" * 74)
+    def _pct(v):
+        return ("%.2f%%" % v) if isinstance(v, (int, float)) else "PENDING"
+
+    print("=" * 92)
+    print("  %-12s  %-12s  %-12s  %-14s  %-14s" % (
+        "Severity", "ASR str-mat", "ASR Guard", "ORR-avg str-mat", "ORR-avg LLaMA"))
+    print("  " + "-" * 88)
     summary = {}
     for sev, cond in CONDS:
-        sm = _sm_asr(_load(os.path.join(ROOT, cond, "metrics.json")))
+        m = _load(os.path.join(ROOT, cond, "metrics.json"))
+        sm = _sm_asr(m)
+        sm_orr = (m.get("avg_orr_pct") or (m.get("avg_orr") or {}).get("orr_pct")
+                  if m else None)
         g = _load(os.path.join(ROOT, cond, "asr_guard.json"))
         g_asr = g.get("asr_pct") if g else None
-        g_cnt = ("%d/%d" % (g["n_unsafe"], g["n_total"])) if g else "—"
-        print("  %-12s  %-18s  %-18s  %s" % (
+        lo = _load(os.path.join(ROOT, cond, "judged_llama_orr.json"))
+        l_orr = lo.get("avg_orr_pct") if lo else None
+        print("  %-12s  %-12s  %-12s  %-14s  %-14s" % (
             "%s (%s)" % (sev, cond),
             ("%.1f%%" % sm) if sm is not None else "n/a",
-            ("%.2f%%" % g_asr) if g_asr is not None else "PENDING (run job)",
-            g_cnt))
-        summary[sev] = {"condition": cond, "asr_string_match": sm, "asr_guard": g_asr}
-    print("=" * 78)
-    print("  string-match = % responses with no refusal phrase (counts deflections as success)")
-    print("  Llama Guard  = % responses Guard labels UNSAFE (true harmful-content rate)")
+            _pct(g_asr),
+            ("%.1f%%" % sm_orr) if sm_orr is not None else "n/a",
+            _pct(l_orr)))
+        summary[sev] = {"condition": cond, "asr_string_match": sm, "asr_guard": g_asr,
+                        "orr_avg_string_match": sm_orr, "orr_avg_llama": l_orr}
+    print("=" * 92)
+    print("  str-mat = string-match (counts deflections / 'too blurry' as success — unreliable)")
+    print("  Guard   = Llama Guard 3 (true ASR) | LLaMA = LLaMA-3-8B ORR judge (true ORR)")
+    print("  Run submit_base_vision_guard.sh (ASR) + submit_base_vision_orr.sh (ORR) to fill these.")
     print()
     out = os.path.join(ROOT, "asr_string_vs_guard.json")
     json.dump(summary, open(out, "w", encoding="utf-8"), indent=2)
