@@ -26,6 +26,14 @@ cd "$REPO"
 mkdir -p logs gap_beaver_6_19/outputs
 MODE="${1:-full}"
 
+# The login node's bare `python` is Python 2 (chokes on UTF-8 in config.py). Use
+# the REU env's Python 3 for the login-node preflight too. (set +u: conda's
+# activate script references unset vars.)
+set +u
+source /apps/anaconda/anaconda-2024.10/etc/profile.d/conda.sh
+conda activate REU
+set -u
+
 # ---- PREFLIGHT on the login node (CPU, 0 GPU-hours). Gate the submit. ----
 echo "preflight (CPU, free) ..."
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 MKL_NUM_THREADS=1 \

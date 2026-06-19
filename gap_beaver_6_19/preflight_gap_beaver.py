@@ -21,6 +21,10 @@ import json
 import glob
 import hashlib
 
+if sys.version_info[0] < 3:
+    sys.exit("ERROR: run with Python 3 — the login node's bare `python` is Python 2. "
+             "Do `conda activate REU` first (or use `python3`).")
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 os.chdir(REPO)
