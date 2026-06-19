@@ -46,7 +46,12 @@ export OPENBLAS_NUM_THREADS=1
 cd /home/ch169788/llava_cot_eval'
 
 # FREE partition (GPU billed 0.0 — does NOT drain the cohort pool).
-COMMON="--partition=preemptable --qos=preemptable --gres=gpu:nvidia_h100_pcie:1 --mem=40G --exclude=evc42"
+# V100-32GB instead of H100: H100 nodes are 100% contended (job kept getting
+# preempted); the V100-32 nodes sit idle, so we start now and don't get bumped.
+# 32GB fits the 11B model (~22GB bf16) since eval & judge run as separate
+# sequential processes (one model in VRAM at a time). --requeue: auto-resume if
+# preempted (eval/judge already resume from disk, so no lost work).
+COMMON="--partition=preemptable --qos=preemptable --gres=gpu:tesla_v100-pcie-32gb:1 --mem=40G --requeue --exclude=evc42"
 
 JID=$(sbatch --parsable $COMMON --job-name="$NAME" --time="$TLIM" \
   --output="logs/${NAME}_%j.log" --wrap="${ENVBLOCK}
