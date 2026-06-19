@@ -81,7 +81,9 @@ submit_one() {
   [ -n "$dep" ] && depflag="--dependency=afterany:$dep"
   sbatch --parsable $COMMON $depflag --job-name="$name" --time=10:00:00 \
     --output="logs/${name}_%j.log" --wrap="${ENVBLOCK}
-if [ -f ${outf} ]; then echo '[skip] ${outf} exists'; exit 0; fi
+N=\$(python -c \"import json;print(len(json.load(open('${outf}'))))\" 2>/dev/null || echo 0)
+if [ \"\$N\" = \"1180\" ]; then echo '[skip] ${outf} already complete (1180)'; exit 0; fi
+echo \"[run] ${cond}: \$N/1180 done, (re)starting (run_beavertails resumes)\"
 ${RUN} --model ${model} --condition ${cond} || exit 1"
 }
 
