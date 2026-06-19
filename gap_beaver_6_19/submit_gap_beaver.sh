@@ -51,7 +51,8 @@ export OPENBLAS_NUM_THREADS=1
 cd /home/ch169788/llava_cot_eval'
 
 # Billed `normal` partition (priority -> won't be preempted) + idle V100-32GB.
-COMMON="--partition=normal --gres=gpu:tesla_v100-pcie-32gb:1 --mem=40G --exclude=evc42"
+# Est. wall-clock/job: ~21 s/img (pilot) x 1180 imgs ≈ ~7 h (V100, batch 1 — the proven path).
+COMMON="--partition=normal --gres=gpu:tesla_v100-pcie-32gb:1 --mem=40G --cpus-per-task=4 --exclude=evc42"
 RUN="python gap_beaver_6_19/run_beavertails.py"
 OUT="gap_beaver_6_19/outputs"
 

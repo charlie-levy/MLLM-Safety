@@ -45,7 +45,8 @@ export HF_HUB_ENABLE_HF_TRANSFER=0
 export OPENBLAS_NUM_THREADS=1
 cd /home/ch169788/llava_cot_eval'
 
-COMMON="--partition=normal --gres=gpu:tesla_v100-pcie-32gb:1 --mem=40G --exclude=evc42"
+# Est. wall-clock/job: LLaVA-1.5-7B on 250 SQA + Llama-3-8B judge ≈ ~30 min (V100, batch 1).
+COMMON="--partition=normal --gres=gpu:tesla_v100-pcie-32gb:1 --mem=40G --cpus-per-task=4 --exclude=evc42"
 
 # submit_one <name> <variant> <blur_pct> [dep_jid]
 submit_one() {
