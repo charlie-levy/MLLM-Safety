@@ -18,6 +18,7 @@ import sys
 import json
 import glob
 import argparse
+import io
 
 # Single-thread before any heavy import (login-node proc cap); we only use stdlib here.
 for _v in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS"):
@@ -54,7 +55,8 @@ def main():
     # 1. dataset json + images
     if not os.path.exists(DATASET_JSON):
         check("dataset JSON exists", False, DATASET_JSON); _summary()
-    data = json.load(open(DATASET_JSON, encoding="utf-8"))
+    with io.open(DATASET_JSON, "r", encoding="utf-8") as f:
+        data = json.load(f)
     keys = sorted(data, key=lambda x: int(x))
     if args.limit:
         keys = keys[:args.limit]
