@@ -27,7 +27,7 @@ import argparse
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 os.chdir(REPO)
-sys.path.insert(0, os.path.join(REPO, "code"))   # reuse tested model_loader + blur_utils
+sys.path.insert(0, HERE)   # self-contained: model_loader.py + blur_utils.py + config.py live here
 
 import torch                                       # noqa: E402
 from PIL import Image                              # noqa: E402
