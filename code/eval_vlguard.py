@@ -219,7 +219,7 @@ def main():
     ap.add_argument("--variant", required=True, choices=sorted(VLGUARD_VARIANTS))
     ap.add_argument("--task", required=True,
                     choices=["figstep", "orr", "xstest", "mmsa", "sqa"],
-                    help="orr = XSTest+MMSA; xstest/mmsa re-run one; sqa = ScienceQA utility (clean only)")
+                    help="orr = XSTest+MMSA; xstest/mmsa re-run one; sqa = ScienceQA utility (respects --blur_pct)")
     ap.add_argument("--blur_pct", type=int, default=0,
                     help="0 = clean, else percentage blur (e.g. 20, 40)")
     args = ap.parse_args()
@@ -247,8 +247,8 @@ def main():
         print("       saved %d FigStep responses -> %s" % (len(recs), out_dir), flush=True)
 
     elif args.task == "sqa":
-        print("\n[infer] ScienceQA-250 (clean only — utility metric) ...", flush=True)
-        sqa_recs = run_dataset(model, processor, load_sqa(), 0, "sqa")
+        print("\n[infer] ScienceQA-250 (utility metric) | condition=%s ..." % cond, flush=True)
+        sqa_recs = run_dataset(model, processor, load_sqa(), args.blur_pct, "sqa")
         write_keyed_json(sqa_recs, os.path.join(out_dir, "responses_sqa.json"))
         jsonl_path = os.path.join(out_dir, "raw_vlguard_%s_sqa.jsonl" % args.variant)
         write_sqa_jsonl(sqa_recs, jsonl_path)
