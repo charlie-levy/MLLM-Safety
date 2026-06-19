@@ -22,7 +22,7 @@ mkdir -p logs
 
 MODE="${1:-full}"
 if [ "$MODE" = "pilot" ]; then
-  PFLAG="--pilot"; SUF="_pilot"; NAME="unsafe_pilot"; TLIM="01:00:00"; PRE="--limit 1"
+  PFLAG="--pilot"; SUF="_pilot"; NAME="unsafe_pilot"; TLIM="00:20:00"; PRE="--limit 1"
 else
   PFLAG="";        SUF="";       NAME="unsafe_full";  TLIM="12:00:00"; PRE=""
 fi
