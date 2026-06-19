@@ -13,8 +13,8 @@
 #
 #   bash gap_vlguard_sqa_6_19/submit_vlguard_sqa.sh
 #
-# 4 jobs, chained one-at-a-time, billed `normal` partition (priority -> not
-# preempted), V100-32GB. Each skips itself if its judged JSON already exists.
+# 4 jobs, chained one-at-a-time, FREE preemptable partition (GPU billed 0.0) on idle
+# V100-32GB (+ --requeue). Each skips itself if its judged JSON already exists.
 # These are small (LLaVA-1.5-7B, 250 samples each) so they can run alongside the
 # beavertails jobs without much footprint.
 # ============================================================================
@@ -46,7 +46,7 @@ export OPENBLAS_NUM_THREADS=1
 cd /home/ch169788/llava_cot_eval'
 
 # Est. wall-clock/job: LLaVA-1.5-7B on 250 SQA + Llama-3-8B judge ≈ ~30 min (V100, batch 1).
-COMMON="--partition=normal --gres=gpu:tesla_v100-pcie-32gb:1 --mem=40G --cpus-per-task=4 --exclude=evc42"
+COMMON="--partition=preemptable --qos=preemptable --gres=gpu:tesla_v100-pcie-32gb:1 --mem=40G --cpus-per-task=4 --requeue --exclude=evc42"
 
 # submit_one <name> <variant> <blur_pct> [dep_jid]
 submit_one() {
@@ -68,7 +68,7 @@ J2=$(submit_one vlg_mixed_sqa_blur40   mixed   40 "$J1")
 J3=$(submit_one vlg_posthoc_sqa_blur20 posthoc 20 "$J2")
 J4=$(submit_one vlg_posthoc_sqa_blur40 posthoc 40 "$J3")
 
-echo "submitted 4 jobs (one-at-a-time, normal partition V100-32GB):"
+echo "submitted 4 jobs (one-at-a-time, FREE preemptable V100-32GB):"
 echo "  $J1 vlg_mixed_sqa_blur20    $J2 vlg_mixed_sqa_blur40"
 echo "  $J3 vlg_posthoc_sqa_blur20  $J4 vlg_posthoc_sqa_blur40"
 echo

@@ -15,7 +15,7 @@
 #   bash gap_beaver_6_19/submit_gap_beaver.sh pilot   # 1 small job: 4 pilots (5 imgs each)
 #   bash gap_beaver_6_19/submit_gap_beaver.sh         # the 7 full jobs (after pilot sign-off)
 #
-# Billed `normal` partition (you have priority -> NOT preempted), strictly ONE job
+# FREE preemptable partition (GPU billed 0.0) on idle V100-32GB, strictly ONE job
 # at a time, V100-32GB. Each skips itself if its JSON already exists (resume the
 # grid). Small + sequential = a modest, bounded amount of GPU.
 # ============================================================================
@@ -50,9 +50,10 @@ export HF_HUB_ENABLE_HF_TRANSFER=0
 export OPENBLAS_NUM_THREADS=1
 cd /home/ch169788/llava_cot_eval'
 
-# Billed `normal` partition (priority -> won't be preempted) + idle V100-32GB.
+# FREE preemptable partition (GPU billed 0.0) on idle V100-32GB — those nodes sit
+# idle so they rarely preempt; --requeue + incremental resume recover if one does.
 # Est. wall-clock/job: ~21 s/img (pilot) x 1180 imgs ≈ ~7 h (V100, batch 1 — the proven path).
-COMMON="--partition=normal --gres=gpu:tesla_v100-pcie-32gb:1 --mem=40G --cpus-per-task=4 --exclude=evc42"
+COMMON="--partition=preemptable --qos=preemptable --gres=gpu:tesla_v100-pcie-32gb:1 --mem=40G --cpus-per-task=4 --requeue --exclude=evc42"
 RUN="python gap_beaver_6_19/run_beavertails.py"
 OUT="gap_beaver_6_19/outputs"
 
@@ -64,7 +65,7 @@ ${RUN} --model base --condition clean   --pilot || exit 1
 ${RUN} --model base --condition noise20 --pilot || exit 1
 ${RUN} --model base --condition blur40  --pilot || exit 1
 ${RUN} --model tis  --condition clean   --pilot || exit 1")
-  echo "submitted PILOT job $JID  (normal partition, V100-32GB)"
+  echo "submitted PILOT job $JID  (FREE preemptable V100-32GB)"
   echo "watch:   squeue -u \$USER | grep gap_pilot   |   tail -f logs/gap_pilot_${JID}.log"
   echo "inspect: ${OUT}/results_beavertails_*_pilot.json   +   gap_beaver_6_19/pilot_*_sample.png"
   echo ">>> READ the pilots, confirm the ASR, THEN run: bash gap_beaver_6_19/submit_gap_beaver.sh"
@@ -92,7 +93,7 @@ J5=$(submit_one gap_tis_noise40  tis  noise40 "$J4")
 J6=$(submit_one gap_tis_blur20   tis  blur20  "$J5")
 J7=$(submit_one gap_tis_blur40   tis  blur40  "$J6")
 
-echo "submitted 7 jobs (run strictly one-at-a-time, normal partition V100-32GB):"
+echo "submitted 7 jobs (run strictly one-at-a-time, FREE preemptable V100-32GB):"
 echo "  $J1 gap_base_noise20   $J2 gap_base_noise40   $J3 gap_base_blur40"
 echo "  $J4 gap_tis_noise20    $J5 gap_tis_noise40    $J6 gap_tis_blur20   $J7 gap_tis_blur40"
 echo
