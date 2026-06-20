@@ -15,7 +15,7 @@
 #   bash gap_beaver_6_19/submit_gap_beaver.sh pilot   # 1 small job: 4 pilots (5 imgs each)
 #   bash gap_beaver_6_19/submit_gap_beaver.sh         # the 7 full jobs (after pilot sign-off)
 #
-# FREE preemptable partition (GPU billed 0.0) on idle V100-32GB, strictly ONE job
+# FREE preemptable partition (GPU billed 0.0) on idle V100-32GB, cells run in PARALLEL
 # at a time, V100-32GB. Each skips itself if its JSON already exists (resume the
 # grid). Small + sequential = a modest, bounded amount of GPU.
 # ============================================================================
@@ -72,7 +72,7 @@ ${RUN} --model tis  --condition clean   --pilot || exit 1")
   exit 0
 fi
 
-# ---- FULL: 7 jobs, chained one-at-a-time ----
+# ---- FULL: 7 jobs in PARALLEL (free partition -> concurrency is free; no orphan chain) ----
 # submit_one <name> <model> <condition> [dep_jid]
 submit_one() {
   local name="$1"; local model="$2"; local cond="$3"; local dep="${4:-}"
@@ -87,15 +87,19 @@ echo \"[run] ${cond}: \$N/1180 done, (re)starting (run_beavertails resumes)\"
 ${RUN} --model ${model} --condition ${cond} || exit 1"
 }
 
+# PARALLEL (no --dependency): on the FREE partition concurrency costs $0, finishes
+# ~4x faster than chaining, and kills the afterany orphan bug — a preempted cell no
+# longer skips the rest, and each cell resumes independently on the next pass.
+# Complete cells (1180) skip instantly via the guard, so re-running is cheap.
 J1=$(submit_one gap_base_noise20 base noise20)
-J2=$(submit_one gap_base_noise40 base noise40 "$J1")
-J3=$(submit_one gap_base_blur40  base blur40  "$J2")
-J4=$(submit_one gap_tis_noise20  tis  noise20 "$J3")
-J5=$(submit_one gap_tis_noise40  tis  noise40 "$J4")
-J6=$(submit_one gap_tis_blur20   tis  blur20  "$J5")
-J7=$(submit_one gap_tis_blur40   tis  blur40  "$J6")
+J2=$(submit_one gap_base_noise40 base noise40)
+J3=$(submit_one gap_base_blur40  base blur40)
+J4=$(submit_one gap_tis_noise20  tis  noise20)
+J5=$(submit_one gap_tis_noise40  tis  noise40)
+J6=$(submit_one gap_tis_blur20   tis  blur20)
+J7=$(submit_one gap_tis_blur40   tis  blur40)
 
-echo "submitted 7 jobs (run strictly one-at-a-time, FREE preemptable V100-32GB):"
+echo "submitted 7 jobs (PARALLEL, FREE preemptable V100-32GB; complete cells skip instantly):"
 echo "  $J1 gap_base_noise20   $J2 gap_base_noise40   $J3 gap_base_blur40"
 echo "  $J4 gap_tis_noise20    $J5 gap_tis_noise40    $J6 gap_tis_blur20   $J7 gap_tis_blur40"
 echo
