@@ -15,7 +15,7 @@
 #   bash gap_beaver_6_19/submit_gap_beaver.sh pilot   # 1 small job: 4 pilots (5 imgs each)
 #   bash gap_beaver_6_19/submit_gap_beaver.sh         # the 7 full jobs (after pilot sign-off)
 #
-# FREE preemptable partition (GPU billed 0.0) on idle V100-32GB, cells run in PARALLEL
+# H100 on billed `normal` partition (~3x faster, reliable), cells run in PARALLEL
 # at a time, V100-32GB. Each skips itself if its JSON already exists (resume the
 # grid). Small + sequential = a modest, bounded amount of GPU.
 # ============================================================================
@@ -50,10 +50,12 @@ export HF_HUB_ENABLE_HF_TRANSFER=0
 export OPENBLAS_NUM_THREADS=1
 cd /home/ch169788/llava_cot_eval'
 
-# FREE preemptable partition (GPU billed 0.0) on idle V100-32GB — those nodes sit
-# idle so they rarely preempt; --requeue + incremental resume recover if one does.
-# Est. wall-clock/job: ~21 s/img (pilot) x 1180 imgs ≈ ~7 h (V100, batch 1 — the proven path).
-COMMON="--partition=preemptable --qos=preemptable --gres=gpu:tesla_v100-pcie-32gb:1 --mem=40G --cpus-per-task=4 --requeue --exclude=evc42"
+# H100 on the billed `normal` partition (user choice): ~3x faster than V100, reliable
+# (no preemption), IDENTICAL batch-1/bf16 decoding so the numbers are unchanged. The 4
+# TIS cells run in parallel -> ~25-30 billed GPU-h total. Base cells already complete
+# -> the guard skips them instantly regardless of partition.
+# Est. wall-clock/job: ~9-10 s/img x 1180 ≈ ~3 h (H100, batch 1).
+COMMON="--partition=normal --gres=gpu:nvidia_h100_pcie:1 --mem=40G --cpus-per-task=4 --exclude=evc42"
 RUN="python gap_beaver_6_19/run_beavertails.py"
 OUT="gap_beaver_6_19/outputs"
 
@@ -99,7 +101,7 @@ J5=$(submit_one gap_tis_noise40  tis  noise40)
 J6=$(submit_one gap_tis_blur20   tis  blur20)
 J7=$(submit_one gap_tis_blur40   tis  blur40)
 
-echo "submitted 7 jobs (PARALLEL, FREE preemptable V100-32GB; complete cells skip instantly):"
+echo "submitted 7 jobs (PARALLEL, H100 on normal partition; complete cells skip instantly):"
 echo "  $J1 gap_base_noise20   $J2 gap_base_noise40   $J3 gap_base_blur40"
 echo "  $J4 gap_tis_noise20    $J5 gap_tis_noise40    $J6 gap_tis_blur20   $J7 gap_tis_blur40"
 echo
