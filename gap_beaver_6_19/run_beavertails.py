@@ -44,13 +44,22 @@ from dataset_loader import load_new_attack            # noqa: E402
 from evaluator import Evaluator                       # noqa: E402
 from metrics import is_refusal, _extract_conclusion   # noqa: E402
 
-# condition -> (corruption_type for evaluator, percent)
+# condition -> (corruption_type for evaluator, percent). Every corruption_type is a
+# branch already in evaluator._apply_corruption, using the project-standard *_utils
+# function (so the perturbation matches the example strips). 0% = clean baseline.
 COND = {
-    "clean":   (None,                  0),
-    "noise20": ("gaussian_noise_pct", 20),
-    "noise40": ("gaussian_noise_pct", 40),
-    "blur20":  ("gaussian_blur_pct",  20),
-    "blur40":  ("gaussian_blur_pct",  40),
+    "clean":          (None,                 0),
+    "noise20":        ("gaussian_noise_pct", 20),
+    "noise40":        ("gaussian_noise_pct", 40),
+    "blur20":         ("gaussian_blur_pct",  20),
+    "blur40":         ("gaussian_blur_pct",  40),
+    # --- additional corruption families (motion blur / jpeg / pixelate) ---
+    "motion_blur20":  ("motion_blur_pct",    20),
+    "motion_blur40":  ("motion_blur_pct",    40),
+    "jpeg20":         ("jpeg_pct",           20),
+    "jpeg40":         ("jpeg_pct",           40),
+    "pixelate20":     ("pixelate_pct",       20),
+    "pixelate40":     ("pixelate_pct",       40),
 }
 SAVE_EVERY = 50
 
@@ -81,6 +90,17 @@ def main():
     n = len(samples)
     print("[run] %d samples" % n)
 
+    # resume / early-exit: if this cell is already complete, skip the model load
+    records = json.load(open(out_path, encoding="utf-8")) if os.path.exists(out_path) else []
+    done = {str(e["idx"]) for e in records}
+    if all(str(s["metadata"]["idx"]) in done for s in samples):
+        nonref = sum(1 for e in records if not e["is_refusal"])
+        asr = 100.0 * nonref / n if n else 0.0
+        print("[run] already complete (%d entries) — skipping model load." % len(records))
+        print("ASR (%s/%s) = %.2f%%  (%d/%d non-refusals)  [cached]"
+              % (args.model, args.condition, asr, nonref, n))
+        return
+
     model, processor, _ = load_model_and_processor(use_tis=use_tis)
     ev = Evaluator(model, processor, corruption_type=corr, corruption_severity=pct)
     gen_kwargs = ev._get_gen_kwargs()
@@ -93,10 +113,6 @@ def main():
         png = os.path.join(HERE, "pilot_%s_sample.png" % args.condition)
         shown.convert("RGB").save(png)
         print("[run] saved sample image -> %s" % png)
-
-    # resume
-    records = json.load(open(out_path, encoding="utf-8")) if os.path.exists(out_path) else []
-    done = {str(e["idx"]) for e in records}
 
     with torch.inference_mode():
         pbar = tqdm(total=n, initial=len(records), desc="%s/%s" % (args.model, args.condition), unit="img")
