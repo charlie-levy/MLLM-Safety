@@ -54,8 +54,8 @@ MANIFEST = {
     ("llava_cot", "beavertails", "blur20"): ["results_6_18/task2_new_attacks/beavertails/responses_base_blur20.csv"],
     ("llava_cot", "siuo", "clean"):  ["results_6_18/task2_new_attacks/siuo/responses_base_clean.csv"],
     ("llava_cot", "siuo", "blur20"): ["results_6_18/task2_new_attacks/siuo/responses_base_blur20.csv"],
-    ("llava_cot", "figstep", "clean"):  ["results_newton/figstep_noise_pct/responses_base_gaussian_noise_pct_p0.csv",
-                                         "results/figstep_noise_pct/responses_base_gaussian_noise_pct_p0.csv"],
+    ("llava_cot", "figstep", "clean"):  ["results_newton/figstep_blur_pct/responses_base_gaussian_blur_pct_p0.csv",
+                                         "results/figstep_blur_pct/responses_base_gaussian_blur_pct_p0.csv"],
     ("llava_cot", "figstep", "blur20"): ["results_newton/figstep_blur_pct/responses_base_gaussian_blur_pct_p20.csv",
                                          "results/figstep_blur_pct/responses_base_gaussian_blur_pct_p20.csv"],
 }
