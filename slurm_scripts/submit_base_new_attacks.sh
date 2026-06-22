@@ -2,18 +2,19 @@
 # ============================================================================
 # submit_base_new_attacks.sh — run the NON-REASONING base model
 # (meta-llama/Llama-3.2-11B-Vision-Instruct) on BeaverTails-V (1180) and SIUO
-# (167) at BLUR 20%, saving FULL responses.
+# (167) at CLEAN + BLUR 20%, saving FULL responses.
 #
 # This is the base-Llama counterpart to the LLaVA-CoT attack grid: the existing
 # eval_attack_dataset.py / run_beavertails.py "base" is actually LLaVA-CoT (the
 # REASONING model). Here we run the genuinely non-reasoning base model via the
 # SAME proven load/generate path as eval_base_vision.py (reused, not changed).
 #
-# 2 jobs in PARALLEL (beavertails, siuo). Full sets, blur20 only. Incremental
-# save every 50 + resume, so a node failure loses <=50 and re-running heals it.
+# 4 jobs in PARALLEL: {beavertails, siuo} x {clean, blur20}. Clean is the baseline
+# blur20 is compared against. Incremental save every 50 + resume, so a node
+# failure loses <=50 and re-running heals it (complete files skip instantly).
 #
 #   bash slurm_scripts/submit_base_new_attacks.sh pilot   # smoke test: 5 imgs each
-#   bash slurm_scripts/submit_base_new_attacks.sh         # the 2 full jobs
+#   bash slurm_scripts/submit_base_new_attacks.sh         # the 4 full jobs
 #
 # BILLED H100 (normal partition) for SPEED — no preemption, runs straight to
 # completion. Base (no CoT, 512 tokens) is fast: BeaverTails ~1-1.5 h, SIUO ~10 min.
@@ -60,33 +61,37 @@ cd /home/ch169788/llava_cot_eval'
 # Proven directive — matches the repo's billed jobs (partition=normal +
 # nvidia_h100_pcie + mem=80G + exclude=evc42; no --qos/--account on normal).
 COMMON="--partition=normal --gres=gpu:nvidia_h100_pcie:1 --mem=80G --cpus-per-task=4 --exclude=evc42"
-RUN="python code/eval_base_new_attacks.py --blur_pct 20"
+RUN="python code/eval_base_new_attacks.py"
 
 if [ "$MODE" = "pilot" ]; then
   JID=$(sbatch --parsable $COMMON --job-name=base_atk_pilot --time=00:40:00 \
     --output="logs/base_atk_pilot_%j.log" --wrap="${ENVBLOCK}
-${RUN} --dataset beavertails --pilot || exit 1
-${RUN} --dataset siuo        --pilot || exit 1")
+${RUN} --dataset beavertails --blur_pct 20 --pilot || exit 1
+${RUN} --dataset siuo        --blur_pct 20 --pilot || exit 1")
   echo "submitted PILOT job $JID (BILLED H100, normal partition)"
   echo "watch: squeue -u \$USER | grep base_atk_pilot   |   tail -f logs/base_atk_pilot_${JID}.log"
   echo ">>> review, THEN run: bash slurm_scripts/submit_base_new_attacks.sh"
   exit 0
 fi
 
+# submit_one <jobname> <dataset> <blur_pct> <tlimit>
 submit_one() {
-  local name="$1" ds="$2" tlimit="$3"
+  local name="$1" ds="$2" blur="$3" tlimit="$4"
   sbatch --parsable $COMMON --job-name="$name" --time="$tlimit" \
     --output="logs/${name}_%j.log" --wrap="${ENVBLOCK}
-${RUN} --dataset ${ds} || exit 1"
+${RUN} --dataset ${ds} --blur_pct ${blur} || exit 1"
 }
 
-J1=$(submit_one base_bt_blur20   beavertails 4:00:00)
-J2=$(submit_one base_siuo_blur20 siuo        2:00:00)
+#                  jobname            dataset      blur tlimit
+J1=$(submit_one base_bt_clean     beavertails  0   4:00:00)
+J2=$(submit_one base_bt_blur20    beavertails  20  4:00:00)
+J3=$(submit_one base_siuo_clean   siuo         0   2:00:00)
+J4=$(submit_one base_siuo_blur20  siuo         20  2:00:00)
 
-echo "submitted 2 jobs (PARALLEL, BILLED H100 normal):"
-echo "  beavertails : $J1   (blur20, 1180)"
-echo "  siuo        : $J2   (blur20, 167)"
+echo "submitted 4 jobs (PARALLEL, BILLED H100 normal):"
+echo "  beavertails : $J1 clean   $J2 blur20   (1180 each)"
+echo "  siuo        : $J3 clean   $J4 blur20   (167 each)"
 echo
 echo "watch:  squeue -u \$USER"
-echo "out:    results/base_vision_new_attacks/blur20/responses_{beavertails,siuo}.json"
+echo "out:    results/base_vision_new_attacks/{clean,blur20}/responses_{beavertails,siuo}.json"
 echo "heal:   re-run this script — complete files skip, partial ones resume"
