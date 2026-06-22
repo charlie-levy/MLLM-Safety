@@ -17,22 +17,22 @@ nothing about the base-model pipeline changes.
   blur     : blur_utils.blur_image(img, 20)         -> identical to eval_base_vision.
   generate : eval_base_vision.generate_one          -> the EXACT base path
              (apply_chat_template -> processor -> greedy generate, MAX_NEW_TOKENS=512).
-  refusal  : metrics.is_refusal (string-match; saved as a convenience field only —
-             the deliverable is the FULL responses; judge later if needed).
 
-Perturbation is applied IN-MEMORY per image (originals untouched). Incremental save
-every 50 + RESUME (skips already-done idx), so a preempt loses <=50.
+NO scoring here. Only the FULL responses are saved — refusal/harm is judged LATER
+by a proper judge (string-match is_refusal is unreliable and is intentionally NOT
+written). Perturbation is applied IN-MEMORY per image (originals untouched).
+Incremental save every 50 + RESUME (skips already-done idx), so a preempt loses <=50.
 
   python code/eval_base_new_attacks.py --dataset both        --blur_pct 20
   python code/eval_base_new_attacks.py --dataset beavertails --blur_pct 20
   python code/eval_base_new_attacks.py --dataset siuo        --blur_pct 20 --pilot
 
 Output (keyed by idx, like eval_base_vision):
-  results/base_vision_new_attacks/blur20/responses_beavertails.json
-  results/base_vision_new_attacks/blur20/responses_siuo.json
-  results/base_vision_new_attacks/blur20/metrics.json
+  results/base_vision_new_attacks/<cond>/responses_beavertails.json
+  results/base_vision_new_attacks/<cond>/responses_siuo.json
+  results/base_vision_new_attacks/<cond>/metrics.json   (run summary: counts only)
 Each response entry:
-  idx, dataset, prompt, image_path, category, label, full_response, is_refusal
+  idx, dataset, prompt, image_path, category, label, full_response
 """
 import os
 import sys
@@ -49,7 +49,6 @@ from tqdm import tqdm                                   # noqa: E402
 from eval_base_vision import load_model, generate_one   # noqa: E402
 from dataset_loader import load_new_attack              # noqa: E402
 from blur_utils import blur_image                       # noqa: E402
-from metrics import is_refusal                          # noqa: E402
 
 from config import NEW_ATTACK_COUNTS                    # noqa: E402
 
@@ -57,12 +56,16 @@ SAVE_EVERY = 50
 
 
 def _load_existing(path):
-    """Resume: return (records_list, done_idx_set). Accepts a keyed dict or a list."""
+    """Resume: return (records_list, done_idx_set). Accepts a keyed dict or a list.
+    Strips any legacy `is_refusal` field so resumed files end up responses-only
+    (scoring is deferred to a judge)."""
     if not os.path.exists(path):
         return [], set()
     with open(path, encoding="utf-8") as f:
         data = json.load(f)
     records = list(data.values()) if isinstance(data, dict) else list(data)
+    for r in records:
+        r.pop("is_refusal", None)
     return records, {str(r["idx"]) for r in records}
 
 
@@ -87,11 +90,9 @@ def run_dataset(model, processor, name, blur_pct, out_dir, pilot=False):
 
     records, done = _load_existing(out_path)
     if not pilot and all(str(s["metadata"]["idx"]) in done for s in samples):
-        nonref = sum(1 for r in records if not r["is_refusal"])
+        _write_keyed(records, out_path)                 # rewrite to drop any legacy fields
         print("[%s] already complete (%d entries) — skipping." % (name, len(records)))
-        print("[%s] non-refusal rate = %.2f%% (%d/%d)  [cached]"
-              % (name, 100.0 * nonref / n, nonref, n))
-        return out_path, n, nonref
+        return out_path, n
 
     pbar = tqdm(total=n, initial=len(records), desc="%s/blur%d" % (name, blur_pct), unit="img")
     for i, s in enumerate(samples):
@@ -103,7 +104,6 @@ def run_dataset(model, processor, name, blur_pct, out_dir, pilot=False):
             img = blur_image(img, blur_pct)             # in-memory; original untouched
         resp = generate_one(model, processor, img, s["prompt"])
         assert resp is not None and resp.strip(), "empty response at %s (%s)" % (idx, name)
-        ref = bool(is_refusal(resp))
         records.append({
             "idx":           idx,
             "dataset":       s["metadata"].get("dataset", name),
@@ -112,7 +112,6 @@ def run_dataset(model, processor, name, blur_pct, out_dir, pilot=False):
             "category":      s["metadata"].get("category", ""),
             "label":         s.get("label", "harmful"),
             "full_response": resp,
-            "is_refusal":    ref,
         })
         done.add(idx)
         pbar.update(1)
@@ -123,10 +122,8 @@ def run_dataset(model, processor, name, blur_pct, out_dir, pilot=False):
     _write_keyed(records, out_path)
     if not pilot:
         assert len(records) == n, "%s: expected %d entries, wrote %d" % (name, n, len(records))
-    nonref = sum(1 for r in records if not r["is_refusal"])
     print("[%s] saved %d responses -> %s" % (name, len(records), out_path))
-    print("[%s] non-refusal rate = %.2f%% (%d/%d)" % (name, 100.0 * nonref / n, nonref, n))
-    return out_path, n, nonref
+    return out_path, n
 
 
 def main():
@@ -154,12 +151,10 @@ def main():
     summary = {"model": "meta-llama/Llama-3.2-11B-Vision-Instruct",
                "blur_pct": args.blur_pct, "datasets": {}}
     for name in names:
-        out_path, n, nonref = run_dataset(model, processor, name, args.blur_pct,
-                                          out_dir, pilot=args.pilot)
+        out_path, n = run_dataset(model, processor, name, args.blur_pct,
+                                  out_dir, pilot=args.pilot)
         summary["datasets"][name] = {
             "n": n,
-            "n_non_refusal": nonref,
-            "non_refusal_rate_pct": round(100.0 * nonref / n, 2) if n else 0.0,
             "responses_file": out_path,
             "expected_count": NEW_ATTACK_COUNTS[name],
         }
@@ -170,8 +165,8 @@ def main():
 
     print("\n" + "=" * 80)
     for name, d in summary["datasets"].items():
-        print("  %-12s n=%-5d non-refusal=%.2f%% (%d)"
-              % (name, d["n"], d["non_refusal_rate_pct"], d["n_non_refusal"]))
+        print("  %-12s n=%-5d responses -> %s" % (name, d["n"], d["responses_file"]))
+    print("  (no scoring — full responses only; judge later)")
     print("  Saved -> %s" % out_dir)
     print("=" * 80, flush=True)
 
