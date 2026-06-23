@@ -55,7 +55,12 @@ for s in "${WG_SNAP}"model-*-of-*.safetensors; do
   SZ=$(du -L -m "$s" 2>/dev/null | cut -f1)
   { [ -n "$SZ" ] && [ "$SZ" -ge 1 ]; } || die "WildGuard shard $(basename "$s") is empty/dangling — re-download that file"
 done
-echo "OK: $N_JSON response files + WildGuard ($HAVE/$EXPECT shards verified, index, tokenizer). Submitting..."
+# WildGuard's tokenizer is a SentencePiece model; transformers 5.9 must convert it,
+# which needs the sentencepiece lib (tiktoken is the fallback path). Fail fast here
+# on the login node rather than crashing the WildGuard job on a compute node.
+python -c "import sentencepiece" 2>/dev/null || die "sentencepiece not installed (WildGuard tokenizer needs it). Run:  pip install sentencepiece tiktoken"
+
+echo "OK: $N_JSON response files + WildGuard ($HAVE/$EXPECT shards verified, index, tokenizer) + sentencepiece. Submitting..."
 
 ENVBLOCK='source /apps/anaconda/anaconda-2024.10/etc/profile.d/conda.sh
 conda activate REU
