@@ -34,6 +34,12 @@ from motion_blur_utils import motion_blur_image            # noqa: E402
 from noise_utils import noisy_image                        # noqa: E402
 from pixelate_utils import pixelate_image                  # noqa: E402
 
+import glob                                                # noqa: E402
+import random                                              # noqa: E402
+import pandas as pd                                        # noqa: E402
+from PIL import Image                                      # noqa: E402
+import dataset_loader as DL                                # noqa: E402
+
 CORRUPTORS = {
     "gaussian_blur": blur_image,
     "jpeg":          jpeg_image,
@@ -90,6 +96,58 @@ def is_dead(resp):
     return any(d in resp.lower() for d in DEAD)
 
 
+# ── Sampling ────────────────────────────────────────────────────────────────
+# n<=0  -> full dataset via the repo's tested loaders (unchanged).
+# n>0   -> random subset that opens ONLY n images. Fixed --seed so every model/
+#          condition draws the SAME subset. Per-row construction matches
+#          dataset_loader exactly (same prompt, glob, image_path, metadata).
+
+def _figstep_sampled(n, seed):
+    csv_path   = os.path.join(DL.FIGSTEP_REPO_PATH, DL.FIGSTEP_CSV)
+    image_root = os.path.join(DL.FIGSTEP_REPO_PATH, DL.FIGSTEP_IMAGE_DIR)
+    rows = pd.read_csv(csv_path).to_dict("records")
+    random.Random(seed).shuffle(rows)
+    samples = []
+    for row in rows[:n]:
+        pattern = os.path.join(image_root, "query_%s_%s_%s_*.png"
+                               % (row["dataset"], row["category_id"], row["task_id"]))
+        matches = glob.glob(pattern)
+        if matches:
+            image_path = matches[0]
+            image = Image.open(image_path).convert("RGB")
+        else:
+            image_path, image = None, DL._blank_image()
+        samples.append({"prompt": DL.FIGSTEP_PROMPT, "image": image, "label": "harmful",
+                        "metadata": {"dataset": "FigStep", "category": str(row["category_name"]),
+                                     "category_id": str(row["category_id"]),
+                                     "task_id": str(row["task_id"]), "image_path": image_path}})
+    return samples
+
+
+def _new_attack_sampled(name, n, seed):
+    json_path = os.path.join(DL.NEW_ATTACKS_DIR, name, "%s.json" % name)
+    with open(json_path, encoding="utf-8") as f:
+        items = list(json.load(f).values())
+    random.Random(seed).shuffle(items)
+    samples = []
+    for item in items[:n]:
+        ip = item["image_path"]
+        if ip and os.path.exists(ip):
+            image = Image.open(ip).convert("RGB")
+        else:
+            image, ip = DL._blank_image(), ""
+        samples.append({"prompt": item["prompt"], "image": image,
+                        "metadata": {"dataset": name, "idx": str(item["idx"]),
+                                     "image_path": ip, "category": item.get("category", "")}})
+    return samples
+
+
+def load_samples(dataset, n, seed):
+    if n and n > 0:
+        return _figstep_sampled(n, seed) if dataset == "figstep" else _new_attack_sampled(dataset, n, seed)
+    return load_figstep() if dataset == "figstep" else load_new_attack(dataset)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True,
@@ -98,7 +156,8 @@ def main():
                     choices=["figstep", "beavertails", "siuo"])
     ap.add_argument("--corrupt", default="none", choices=["none"] + sorted(CORRUPTORS))
     ap.add_argument("--pct", type=float, default=0)
-    ap.add_argument("--n", type=int, default=0, help="limit samples (0 = all)")
+    ap.add_argument("--n", type=int, default=0, help="random subset size (0 = full dataset)")
+    ap.add_argument("--seed", type=int, default=0, help="seed for the random subset (same across models)")
     ap.add_argument("--out", required=True)
     ap.add_argument("--save_images", default="",
                     help="dir to dump the corrupted images (for preview inspection)")
@@ -107,9 +166,7 @@ def main():
     cond = "clean" if (args.corrupt == "none" or args.pct == 0) else "%s%g" % (args.corrupt, args.pct)
     corrupt_fn = None if cond == "clean" else CORRUPTORS[args.corrupt]
 
-    samples = load_figstep() if args.dataset == "figstep" else load_new_attack(args.dataset)
-    if args.n > 0:
-        samples = samples[:args.n]
+    samples = load_samples(args.dataset, args.n, args.seed)
 
     print("=" * 70)
     print("  run_eval | model=%s dataset=%s cond=%s n=%d"
