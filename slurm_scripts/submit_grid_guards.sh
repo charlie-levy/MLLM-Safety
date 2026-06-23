@@ -37,16 +37,25 @@ N_JSON=$(ls model_responses/*.json 2>/dev/null | wc -l)
 WG=~/.cache/huggingface/hub/models--allenai--wildguard
 WG_SNAP=$(ls -d "$WG"/snapshots/*/ 2>/dev/null | head -1)
 [ -n "$WG_SNAP" ] || die "WildGuard not cached. Run on login node:  hf download allenai/wildguard"
-ls "$WG"/blobs/*.incomplete >/dev/null 2>&1 && die "WildGuard download INCOMPLETE (*.incomplete blobs). Re-run: HF_HUB_DISABLE_XET=1 hf download allenai/wildguard"
+# Orphan *.incomplete temp blobs are harmless (abandoned multi-worker / pytorch_model.bin
+# attempts). Warn, but let the authoritative file checks below decide loadability.
+if ls "$WG"/blobs/*.incomplete >/dev/null 2>&1; then
+  echo "WARN: orphan *.incomplete blobs present (harmless). Tidy with: rm $WG/blobs/*.incomplete"
+fi
 [ -e "${WG_SNAP}model.safetensors.index.json" ] || die "WildGuard missing model.safetensors.index.json — download incomplete"
 ls "${WG_SNAP}"tokenizer.model "${WG_SNAP}"tokenizer.json >/dev/null 2>&1 || die "WildGuard missing tokenizer files — download incomplete"
-# all shards present? (model-0000N-of-0000M -> need M shards)
+# all safetensors shards present? (model-0000N-of-0000M -> need M shards)
 SHARD1=$(ls "${WG_SNAP}"model-00001-of-*.safetensors 2>/dev/null | head -1)
 [ -n "$SHARD1" ] || die "WildGuard has no sharded safetensors — download incomplete"
 EXPECT=$(echo "$SHARD1" | sed -E 's/.*of-0*([0-9]+)\.safetensors/\1/')
 HAVE=$(ls "${WG_SNAP}"model-*-of-*.safetensors 2>/dev/null | wc -l)
 [ "$HAVE" -eq "$EXPECT" ] || die "WildGuard has $HAVE/$EXPECT safetensors shards — download incomplete. Re-run hf download."
-echo "OK: $N_JSON response files + WildGuard ($HAVE/$EXPECT shards, index, tokenizer). Submitting..."
+# integrity: each shard must resolve (follow symlink) to a real, non-tiny file
+for s in "${WG_SNAP}"model-*-of-*.safetensors; do
+  SZ=$(du -L -m "$s" 2>/dev/null | cut -f1)
+  { [ -n "$SZ" ] && [ "$SZ" -ge 1 ]; } || die "WildGuard shard $(basename "$s") is empty/dangling — re-download that file"
+done
+echo "OK: $N_JSON response files + WildGuard ($HAVE/$EXPECT shards verified, index, tokenizer). Submitting..."
 
 ENVBLOCK='source /apps/anaconda/anaconda-2024.10/etc/profile.d/conda.sh
 conda activate REU
