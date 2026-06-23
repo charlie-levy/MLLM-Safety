@@ -6,15 +6,19 @@
 #
 # Both judges see the same (prompt, response) text -> directly comparable ASR.
 #
-# DAG (slurm afterok):
-#     preflight (8 samples/file, BOTH models) ──> full (all 12 cells) ──> report
-# The preflight loads both guards and judges 8 real samples per file (~5 min),
-# so a model-load / chat-template / parse bug fails cheap before the full run.
+# DAG (slurm afterok) — judges run IN PARALLEL for speed:
+#     preflight (8/file, BOTH models) ─┬─> full_llamaguard ─┐
+#                                      └─> full_wildguard  ─┴─> report
+# The preflight (~5 min) loads both guards and judges 8 real samples per file,
+# so a model-load / chat-template / parse bug fails cheap. Then each judge runs
+# on its OWN H100 concurrently.
 #
-# Everything runs OFFLINE on ONE preemptable H100 (billed 0.0). Submit from login:
+# Partition: normal (NON-preemptable H100, won't get killed mid-run). NOTE: the
+# normal partition BILLS against the GPU pool (preemptable is the free one).
+# Runs OFFLINE (weights pre-cached). Submit from the login node:
 #     bash slurm_scripts/submit_grid_guards.sh
 #
-# Prereq: WildGuard cached ->  hf download allenai/wildguard
+# Prereq: WildGuard fully cached ->  hf download allenai/wildguard
 #         (Llama-Guard-3-11B-Vision is already cached.)
 # ============================================================================
 set -euo pipefail
@@ -23,15 +27,26 @@ REPO=/home/ch169788/llava_cot_eval
 cd "$REPO"
 mkdir -p logs results/grid_guard_eval
 
-# Sanity: refuse to submit if the grid or the WildGuard weights aren't present.
+die() { echo "ERROR: $*" >&2; exit 1; }
+
+# --- Sanity: grid present ---
 N_JSON=$(ls model_responses/*.json 2>/dev/null | wc -l)
-if [ "$N_JSON" -eq 0 ]; then
-  echo "ERROR: no model_responses/*.json found in $REPO (did you 'git pull'?)" >&2; exit 1
-fi
-if [ -z "$(ls -d ~/.cache/huggingface/hub/models--allenai--wildguard/snapshots/* 2>/dev/null)" ]; then
-  echo "ERROR: WildGuard not cached. Run on the login node:  hf download allenai/wildguard" >&2; exit 1
-fi
-echo "Found $N_JSON response files + WildGuard weights. Submitting..."
+[ "$N_JSON" -gt 0 ] || die "no model_responses/*.json in $REPO (did you 'git pull'?)"
+
+# --- Sanity: WildGuard COMPLETELY downloaded (this is what bit us once) ---
+WG=~/.cache/huggingface/hub/models--allenai--wildguard
+WG_SNAP=$(ls -d "$WG"/snapshots/*/ 2>/dev/null | head -1)
+[ -n "$WG_SNAP" ] || die "WildGuard not cached. Run on login node:  hf download allenai/wildguard"
+ls "$WG"/blobs/*.incomplete >/dev/null 2>&1 && die "WildGuard download INCOMPLETE (*.incomplete blobs). Re-run: HF_HUB_DISABLE_XET=1 hf download allenai/wildguard"
+[ -e "${WG_SNAP}model.safetensors.index.json" ] || die "WildGuard missing model.safetensors.index.json — download incomplete"
+ls "${WG_SNAP}"tokenizer.model "${WG_SNAP}"tokenizer.json >/dev/null 2>&1 || die "WildGuard missing tokenizer files — download incomplete"
+# all shards present? (model-0000N-of-0000M -> need M shards)
+SHARD1=$(ls "${WG_SNAP}"model-00001-of-*.safetensors 2>/dev/null | head -1)
+[ -n "$SHARD1" ] || die "WildGuard has no sharded safetensors — download incomplete"
+EXPECT=$(echo "$SHARD1" | sed -E 's/.*of-0*([0-9]+)\.safetensors/\1/')
+HAVE=$(ls "${WG_SNAP}"model-*-of-*.safetensors 2>/dev/null | wc -l)
+[ "$HAVE" -eq "$EXPECT" ] || die "WildGuard has $HAVE/$EXPECT safetensors shards — download incomplete. Re-run hf download."
+echo "OK: $N_JSON response files + WildGuard ($HAVE/$EXPECT shards, index, tokenizer). Submitting..."
 
 ENVBLOCK='source /apps/anaconda/anaconda-2024.10/etc/profile.d/conda.sh
 conda activate REU
@@ -44,9 +59,10 @@ export HF_HUB_ENABLE_HF_TRANSFER=0
 export OPENBLAS_NUM_THREADS=1
 cd /home/ch169788/llava_cot_eval'
 
-COMMON="--partition=preemptable --qos=preemptable --gres=gpu:nvidia_h100_pcie:1 --mem=80G --exclude=evc42"
+# normal = non-preemptable H100 (won't be killed mid-run). Default QOS for the partition.
+COMMON="--partition=normal --gres=gpu:nvidia_h100_pcie:1 --mem=80G --exclude=evc42"
 
-submit() {  # submit <jobname> <timelimit> <dependency-or-empty> <python-command>
+submit() {  # submit <jobname> <timelimit> <dep-or-empty (colon-joined ids ok)> <python-command>
   local name="$1" tlimit="$2" dep="$3" cmd="$4"
   local depflag=""
   [ -n "$dep" ] && depflag="--dependency=afterok:$dep"
@@ -55,17 +71,22 @@ submit() {  # submit <jobname> <timelimit> <dependency-or-empty> <python-command
 ${cmd} || exit 1"
 }
 
+# Preflight: both models, 8 samples/file (~5 min) — validates text-only LLaMA-Guard path.
 PF=$(submit grid_guard_preflight 0:30:00 "" \
   "python code/judge_grid_guards.py --judge both --limit 8 --out_dir results/grid_guard_eval/_preflight")
 
-FULL=$(submit grid_guard_full 6:00:00 "$PF" \
-  "python code/judge_grid_guards.py --judge both --out_dir results/grid_guard_eval")
+# Full judges run in PARALLEL on two H100s; bigger batches for throughput.
+LG=$(submit grid_guard_llamaguard 4:00:00 "$PF" \
+  "python code/judge_grid_guards.py --judge llamaguard --llamaguard_batch 16 --out_dir results/grid_guard_eval")
+WG_J=$(submit grid_guard_wildguard 4:00:00 "$PF" \
+  "python code/judge_grid_guards.py --judge wildguard --wildguard_batch 32 --out_dir results/grid_guard_eval")
 
-REP=$(submit grid_guard_report 0:20:00 "$FULL" \
+# Report after BOTH judges succeed.
+REP=$(submit grid_guard_report 0:20:00 "$LG:$WG_J" \
   "python code/report_grid_guards.py results/grid_guard_eval")
 
 echo "──────────────────────────────────────────────────────────────"
-echo "preflight=$PF  ->  full=$FULL  ->  report=$REP"
+echo "preflight=$PF  ->  (llamaguard=$LG ∥ wildguard=$WG_J)  ->  report=$REP"
 echo "Watch:   squeue -u \$USER | grep grid_guard"
 echo "Preflight log:  tail -f logs/grid_guard_preflight.log"
 echo "Final table:    cat logs/grid_guard_report.log   (also results/grid_guard_eval/asr_summary.json)"
