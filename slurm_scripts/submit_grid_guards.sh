@@ -43,7 +43,7 @@ if ls "$WG"/blobs/*.incomplete >/dev/null 2>&1; then
   echo "WARN: orphan *.incomplete blobs present (harmless). Tidy with: rm $WG/blobs/*.incomplete"
 fi
 [ -e "${WG_SNAP}model.safetensors.index.json" ] || die "WildGuard missing model.safetensors.index.json — download incomplete"
-ls "${WG_SNAP}"tokenizer.model "${WG_SNAP}"tokenizer.json >/dev/null 2>&1 || die "WildGuard missing tokenizer files — download incomplete"
+{ [ -e "${WG_SNAP}tokenizer.model" ] || [ -e "${WG_SNAP}tokenizer.json" ]; } || die "WildGuard missing tokenizer (need tokenizer.model or tokenizer.json) — download incomplete"
 # all safetensors shards present? (model-0000N-of-0000M -> need M shards)
 SHARD1=$(ls "${WG_SNAP}"model-00001-of-*.safetensors 2>/dev/null | head -1)
 [ -n "$SHARD1" ] || die "WildGuard has no sharded safetensors — download incomplete"
