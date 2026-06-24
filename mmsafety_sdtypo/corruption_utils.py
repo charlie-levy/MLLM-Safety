@@ -72,7 +72,7 @@ def apply_occlusion(img, block_fraction=0.40, seed=42):
 CORRUPTIONS = {
     "clean":     lambda img: img.copy(),
     "blur":      lambda img: blur_strong(img, radius=5.0),
-    "noise":     lambda img: noise_strong(img, std=80),
-    "jpeg":      lambda img: apply_jpeg_compression(img, quality=10),
+    "noise":     lambda img: noise_strong(img, std=110),
+    "jpeg":      lambda img: apply_jpeg_compression(img, quality=5),
     "occlusion": lambda img: apply_occlusion(img, block_fraction=0.40, seed=42),
 }
