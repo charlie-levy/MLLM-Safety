@@ -24,8 +24,7 @@ cd %s""" % ROOT
 
 HEADER = """#!/bin/bash
 #SBATCH --job-name=%(jn)s
-#SBATCH --partition=preemptable
-#SBATCH --qos=preemptable
+#SBATCH --partition=normal
 #SBATCH --gres=gpu:nvidia_h100_pcie:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=80G
