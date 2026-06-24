@@ -9,9 +9,9 @@ parameters, tuned via the QC grid. The verbatim severity functions are kept for
 provenance / comparison.
 
 Current study levels (tune these from the QC grid):
-    blur      : Gaussian radius = 4.0
-    noise     : Gaussian std    = 45
-    jpeg      : quality         = 15
+    blur      : Gaussian radius = 5.0
+    noise     : Gaussian std    = 80
+    jpeg      : quality         = 10
     occlusion : block fraction  = 0.40
 """
 import io
@@ -71,8 +71,8 @@ def apply_occlusion(img, block_fraction=0.40, seed=42):
 
 CORRUPTIONS = {
     "clean":     lambda img: img.copy(),
-    "blur":      lambda img: blur_strong(img, radius=4.0),
-    "noise":     lambda img: noise_strong(img, std=45),
-    "jpeg":      lambda img: apply_jpeg_compression(img, quality=15),
+    "blur":      lambda img: blur_strong(img, radius=5.0),
+    "noise":     lambda img: noise_strong(img, std=80),
+    "jpeg":      lambda img: apply_jpeg_compression(img, quality=10),
     "occlusion": lambda img: apply_occlusion(img, block_fraction=0.40, seed=42),
 }

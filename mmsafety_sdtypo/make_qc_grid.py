@@ -23,8 +23,8 @@ from corruption_utils import CORRUPTIONS    # noqa: E402
 
 SUBSETS = [("Sex", 109), ("Physical_Harm", 144)]
 ORDER = ["clean", "blur", "noise", "jpeg", "occlusion"]
-LABELS = {"clean": "clean", "blur": "blur r=4.0", "noise": "noise std=45",
-          "jpeg": "jpeg q=15", "occlusion": "occlusion 40%"}
+LABELS = {"clean": "clean", "blur": "blur r=5.0", "noise": "noise std=80",
+          "jpeg": "jpeg q=10", "occlusion": "occlusion 40%"}
 PICKS = [0, 50, 150]   # 0=Sex, 50=Sex, 150=Physical_Harm
 
 
