@@ -15,6 +15,23 @@ API:
 import io
 import numpy as np
 from PIL import Image
+
+# --- numpy 2.0 compatibility -----------------------------------------------------
+# imagecorruptions 1.1.2 uses aliases numpy 2.0 removed (e.g. np.float_ inside
+# plasma_fractal / fog). Restore the ones it touches before any corruption runs.
+for _alias, _real in (("float_", "float64"), ("complex_", "complex128"),
+                      ("unicode_", "str_"), ("string_", "bytes_"), ("bool8", "bool_")):
+    if not hasattr(np, _alias) and hasattr(np, _real):
+        setattr(np, _alias, getattr(np, _real))
+
+# Quiet OpenCV's worker-thread spam on the login node (RLIMIT_NPROC 100) and keep
+# it single-threaded — corruptions are applied one image at a time anyway.
+try:
+    import cv2
+    cv2.setNumThreads(0)
+except Exception:
+    pass
+
 from imagecorruptions import corrupt, get_corruption_names
 
 # --- compatibility shim ---------------------------------------------------------
