@@ -17,6 +17,27 @@ import numpy as np
 from PIL import Image
 from imagecorruptions import corrupt, get_corruption_names
 
+# --- compatibility shim ---------------------------------------------------------
+# imagecorruptions 1.1.2 (unmaintained) calls skimage.filters.gaussian with the
+# `multichannel=` kwarg, which scikit-image >=0.19 removed in favour of
+# `channel_axis=`. On Newton (skimage 0.25.2) this crashes glass_blur. Patch the
+# `gaussian` reference inside imagecorruptions.corruptions so the kwarg is
+# translated; harmless on older skimage that still accepts channel_axis.
+try:
+    import imagecorruptions.corruptions as _ic_corruptions
+
+    _orig_gaussian = _ic_corruptions.gaussian
+
+    def _gaussian_compat(*args, **kwargs):
+        if "multichannel" in kwargs:
+            mc = kwargs.pop("multichannel")
+            kwargs.setdefault("channel_axis", -1 if mc else None)
+        return _orig_gaussian(*args, **kwargs)
+
+    _ic_corruptions.gaussian = _gaussian_compat
+except Exception:
+    pass
+
 # The 10 corruptions Part 1 sweeps. Default severity is 3; the three blurs are
 # cranked to the library max (severity=5). jpeg is handled by a CUSTOM stronger
 # encoder (see below) because the library's jpeg at sev5 is only ~quality 7 and
