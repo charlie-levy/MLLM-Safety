@@ -2,28 +2,25 @@
 """
 prepare_datasets.py — ONLINE, ONE-TIME materializer for the Part 2 datasets.
 
-Run on a node WITH internet (login node is fine; single-threaded, saves to disk).
-Downloads each dataset, applies the spec's filtering / balanced sampling (seed=42),
-saves every image to disk, and writes a uniform manifest:
+Reads the HF auto-converted parquet branch (refs/convert/parquet) DIRECTLY with
+pyarrow — NOT load_dataset. load_dataset's split-generation spawns a CPU-sized
+thread pool that core-dumps the login node (RLIMIT_NPROC=100). hf_hub_download is
+single-file/single-threaded and pyarrow is capped to 1 thread, so this is safe.
 
+Writes a uniform manifest per dataset:
     /home/ch169788/experiments/part2/data/<dataset>/images/<idx>.png
     /home/ch169788/experiments/part2/data/<dataset>/manifest.jsonl
         {idx, dataset, category, prompt, image_path}
 
-The Slurm inference jobs then read the manifest OFFLINE.
-
-Schemas are now KNOWN (confirmed via HF datasets-server, 2026-06):
-
-  mmsafety_tiny : TinyVersion_ID_List.json is a LIST of {Scenario, Sampled_ID_List}.
-                  Per scenario: config = Scenario with the "NN-" prefix stripped
-                  (e.g. "07-Sex" -> "Sex"), split SD_TYPO, keep rows whose `id` is
-                  in Sampled_ID_List. prompt=question, image=image, category=Scenario.
-  spa_vl        : load_dataset("sqrti/SPA-VL","test",split="harm").
-                  prompt=question, image=image, category=class1. Use ALL harm rows.
-  vls_bench     : load_dataset("Foreshhh/vlsbench",split="train").
-                  prompt=instruction, image=image, category=category. Balanced 500.
-  holisafe      : GATED (needs HF login + accepted terms). filter type=="USU",
-                  prompt=query, image=image, category=category. Balanced 500.
+Schemas (confirmed via HF datasets-server, 2026-06):
+  mmsafety_tiny : TinyVersion_ID_List.json = LIST of {Scenario, Sampled_ID_List}.
+                  config = Scenario minus "NN-" prefix; parquet <config>/SD_TYPO/*;
+                  keep rows whose `id` in Sampled_ID_List. prompt=question.
+  spa_vl        : parquet test/harm/*  -> prompt=question, image=image, cat=class1. ALL.
+  vls_bench     : parquet default/train/*  (7 files, ~3.4GB) -> prompt=instruction,
+                  image=image, cat=category. Balanced 500.
+  holisafe      : GATED. all parquet rows -> filter type=="USU"; prompt=query,
+                  image=image, cat=category. Balanced 500.
 
   python prepare_datasets.py --dataset all --inspect_only
   python prepare_datasets.py --dataset spa_vl
@@ -31,15 +28,11 @@ Schemas are now KNOWN (confirmed via HF datasets-server, 2026-06):
 """
 import os
 import io
-import sys
 import json
 import random
 import argparse
 from collections import Counter
 
-# Cap EVERY native thread pool before importing datasets/pyarrow — the login node
-# has RLIMIT_NPROC=100, and Arrow's "Generating split" spawns a CPU-sized pool
-# (32+) that tips it over -> `std::system_error: Resource temporarily unavailable`.
 for _v in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS",
            "NUMEXPR_NUM_THREADS", "RAYON_NUM_THREADS", "ARROW_NUM_THREADS"):
     os.environ.setdefault(_v, "1")
@@ -47,107 +40,92 @@ os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
 os.environ.setdefault("HF_HUB_ENABLE_HF_TRANSFER", "0")
 
-import pyarrow                                      # noqa: E402
+import pyarrow                                    # noqa: E402
 pyarrow.set_cpu_count(1)
 pyarrow.set_io_thread_count(1)
+import pyarrow.parquet as pq                      # noqa: E402
 
-import requests                                    # noqa: E402
-from PIL import Image                              # noqa: E402
-import datasets                                    # noqa: E402
-from datasets import load_dataset                  # noqa: E402
+import requests                                   # noqa: E402
+from PIL import Image                             # noqa: E402
+from huggingface_hub import HfApi, hf_hub_download  # noqa: E402
 
 OUT_ROOT = "/home/ch169788/experiments/part2/data"
 SEED = 42
+PARQUET_REV = "refs/convert/parquet"
 TINY_ID_URL = "https://raw.githubusercontent.com/isXinLiu/MM-SafetyBench/main/TinyVersion_ID_List.json"
+MM_REPO = "PKU-Alignment/MM-SafetyBench"
 
 
-# ── helpers ────────────────────────────────────────────────────────────────────
-def image_columns(tbl):
-    return [name for name, feat in tbl.features.items() if isinstance(feat, datasets.Image)]
+# ── parquet helpers ─────────────────────────────────────────────────────────────
+def list_parquets(repo, keep):
+    """parquet files on the auto-parquet branch where keep(path) is True."""
+    fs = sorted(f for f in HfApi().list_repo_files(repo, repo_type="dataset", revision=PARQUET_REV)
+                if f.endswith(".parquet") and keep(f))
+    if not fs:
+        raise SystemExit("%s: no parquet matched on %s" % (repo, PARQUET_REV))
+    return fs
 
 
-def to_pil(val, base_dir=""):
+def read_table(repo, fname, columns=None):
+    local = hf_hub_download(repo, fname, repo_type="dataset", revision=PARQUET_REV)
+    return pq.read_table(local, columns=columns)
+
+
+def to_pil(val):
     if isinstance(val, Image.Image):
         return val.convert("RGB")
     if isinstance(val, dict) and val.get("bytes"):
         return Image.open(io.BytesIO(val["bytes"])).convert("RGB")
-    if isinstance(val, str):
-        for p in (val, os.path.join(base_dir, val)):
-            if p and os.path.exists(p):
-                return Image.open(p).convert("RGB")
-    raise ValueError("cannot turn value into image (%r)" % (type(val),))
+    if isinstance(val, (bytes, bytearray)):
+        return Image.open(io.BytesIO(val)).convert("RGB")
+    if isinstance(val, str) and os.path.exists(val):
+        return Image.open(val).convert("RGB")
+    raise ValueError("cannot decode image (%r)" % (type(val),))
 
 
-def inspect(name, ds):
-    print("\n" + "=" * 78)
-    print("  INSPECT %s" % name)
-    print("=" * 78)
-    if isinstance(ds, datasets.DatasetDict):
-        print("splits:", {k: len(v) for k, v in ds.items()})
-        first = ds[list(ds.keys())[0]]
-    else:
-        print("rows:", len(ds))
-        first = ds
-    print("columns:", first.column_names)
-    print("image columns:", image_columns(first))
-    ex = first[0]
-    for k, v in ex.items():
-        sv = (v[:160] if isinstance(v, str) else
-              ("<PIL %s>" % (v.size,) if isinstance(v, Image.Image) else
-               ("<imgdict>" if isinstance(v, dict) and "bytes" in v else repr(v)[:120])))
-        print("  %-18s = %s" % (k, sv))
-    return first
-
-
-def materialize(name, rows, prompt_field, image_field, category_field, base_dir=""):
+def save_rows(name, rows):
+    """rows: list of {prompt, image, category}; image is a parquet cell (dict/bytes)."""
     out_dir = os.path.join(OUT_ROOT, name)
     img_dir = os.path.join(out_dir, "images")
     os.makedirs(img_dir, exist_ok=True)
     manifest = os.path.join(out_dir, "manifest.jsonl")
-    n = 0
     with open(manifest, "w", encoding="utf-8") as mf:
-        for i, ex in enumerate(rows):
-            img = to_pil(ex[image_field], base_dir)
+        for i, r in enumerate(rows):
             ip = os.path.join(img_dir, "%05d.png" % i)
-            img.save(ip)
+            to_pil(r["image"]).save(ip)
             mf.write(json.dumps({
-                "idx": i,
-                "dataset": name,
-                "category": str(ex.get(category_field, "")) if category_field else "",
-                "prompt": ex[prompt_field],
-                "image_path": ip,
+                "idx": i, "dataset": name,
+                "category": str(r.get("category", "")),
+                "prompt": r["prompt"], "image_path": ip,
             }, ensure_ascii=False) + "\n")
-            n += 1
-    print("[%s] materialized %d samples -> %s" % (name, n, manifest))
-    return n
+    print("[%s] materialized %d samples -> %s" % (name, len(rows), manifest))
 
 
-def balanced_subset(rows, category_field, target, seed=SEED):
-    """Even sample across categories; fill remainder from largest categories."""
+def balanced_pick(items, target, seed=SEED):
+    """items: list of (payload, category). Return list of payloads, balanced by cat."""
     rng = random.Random(seed)
-    by_cat = {}
-    for ex in rows:
-        by_cat.setdefault(str(ex.get(category_field, "")), []).append(ex)
-    cats = sorted(by_cat)
+    by = {}
+    for payload, cat in items:
+        by.setdefault(str(cat), []).append(payload)
+    cats = sorted(by)
     print("  categories (%d):" % len(cats))
     for c in cats:
-        print("    %-34s %d" % (c, len(by_cat[c])))
+        print("    %-36s %d" % (c, len(by[c])))
     per = target // max(1, len(cats))
     picked = []
     for c in cats:
-        pool = by_cat[c][:]
+        pool = by[c][:]
         rng.shuffle(pool)
         picked.extend(pool[:per])
-    remainder = target - len(picked)
-    if remainder > 0:
-        leftovers = []
-        for c in sorted(cats, key=lambda k: -len(by_cat[k])):
-            leftovers.extend(by_cat[c][per:])
-        rng.shuffle(leftovers)
-        picked.extend(leftovers[:remainder])
+    rem = target - len(picked)
+    if rem > 0:
+        left = []
+        for c in sorted(cats, key=lambda k: -len(by[k])):
+            left.extend(by[c][per:])
+        rng.shuffle(left)
+        picked.extend(left[:rem])
     rng.shuffle(picked)
-    print("  final per-category:", dict(Counter(str(ex.get(category_field, "")) for ex in picked)))
-    print("  total picked:", len(picked))
+    print("  picked %d total" % len(picked))
     return picked
 
 
@@ -158,76 +136,112 @@ def _as_int(v):
         return None
 
 
+def show_schema(repo, fname):
+    local = hf_hub_download(repo, fname, repo_type="dataset", revision=PARQUET_REV)
+    pf = pq.ParquetFile(local)
+    print("  file:", fname)
+    print("  columns:", [f.name for f in pf.schema_arrow])
+    print("  rows in file:", pf.metadata.num_rows)
+
+
 # ── per-dataset builders ────────────────────────────────────────────────────────
 def do_mmsafety_tiny(inspect_only):
-    print("\n>>> MM-SafetyBench-Tiny: fetching Tiny ID list")
-    id_list = requests.get(TINY_ID_URL, timeout=60).json()   # LIST of {Scenario, Sampled_ID_List}
-    print("  %d scenarios; e.g. %s -> %d ids"
-          % (len(id_list), id_list[0]["Scenario"], len(id_list[0]["Sampled_ID_List"])))
-
-    def cfg_of(scenario):
-        return scenario.split("-", 1)[1] if "-" in scenario else scenario
-
+    print("\n>>> MM-SafetyBench-Tiny")
+    id_list = requests.get(TINY_ID_URL, timeout=60).json()
+    cfg_of = lambda s: s.split("-", 1)[1] if "-" in s else s
     if inspect_only:
         scen = id_list[0]["Scenario"]
-        ds = load_dataset("PKU-Alignment/MM-SafetyBench", name=cfg_of(scen))
-        inspect("mmsafety_tiny[%s]" % cfg_of(scen), ds)
+        files = list_parquets(MM_REPO, lambda f, c=cfg_of(scen): c in f and "SD_TYPO" in f)
+        print(" %s -> %s" % (scen, files))
+        show_schema(MM_REPO, files[0])
         return
-
     rows = []
     for entry in id_list:
         scen = entry["Scenario"]
+        cfg = cfg_of(scen)
         want = set(_as_int(x) for x in entry["Sampled_ID_List"])
-        ds = load_dataset("PKU-Alignment/MM-SafetyBench", name=cfg_of(scen))
-        split = "SD_TYPO" if "SD_TYPO" in ds else list(ds.keys())[0]
-        tbl = ds[split]
+        files = list_parquets(MM_REPO, lambda f, c=cfg: c in f and "SD_TYPO" in f)
         kept = 0
-        for ex in tbl:
-            if _as_int(ex.get("id")) in want:
-                ex = dict(ex)
-                ex["_category"] = scen
-                rows.append(ex)
-                kept += 1
-        print("  %-24s kept %d/%d (split=%s)" % (scen, kept, len(want), split))
-    if not rows:
-        raise SystemExit("mmsafety_tiny: no rows matched Tiny ids — check the `id` field.")
-    materialize("mmsafety_tiny", rows, "question", "image", "_category")
+        for f in files:
+            t = read_table(MM_REPO, f)
+            ids, qs, imgs = t.column("id").to_pylist(), t.column("question").to_pylist(), t.column("image")
+            for i, _id in enumerate(ids):
+                if _as_int(_id) in want:
+                    rows.append({"prompt": qs[i], "image": imgs[i].as_py(), "category": scen})
+                    kept += 1
+        print("  %-24s kept %d/%d" % (scen, kept, len(want)))
+    save_rows("mmsafety_tiny", rows)
 
 
 def do_spa_vl(inspect_only):
-    ds = load_dataset("sqrti/SPA-VL", "test", split="harm")   # config=test, split=harm
-    inspect("spa_vl", ds)
+    print("\n>>> SPA-VL (test/harm)")
+    files = list_parquets("sqrti/SPA-VL", lambda f: "harm" in f and "help" not in f)
+    print("  files:", files)
     if inspect_only:
+        show_schema("sqrti/SPA-VL", files[0])
         return
-    materialize("spa_vl", list(ds), "question", "image", "class1")
+    rows = []
+    for f in files:
+        t = read_table("sqrti/SPA-VL", f)
+        q, c1, img = t.column("question").to_pylist(), t.column("class1").to_pylist(), t.column("image")
+        for i in range(len(q)):
+            rows.append({"prompt": q[i], "image": img[i].as_py(), "category": c1[i]})
+    save_rows("spa_vl", rows)
 
 
 def do_vls_bench(inspect_only):
-    ds = load_dataset("Foreshhh/vlsbench", split="train")
-    inspect("vls_bench", ds)
+    print("\n>>> VLS-Bench (default/train, balanced 500)")
+    files = list_parquets("Foreshhh/vlsbench", lambda f: "train" in f)
+    print("  files:", files)
     if inspect_only:
+        show_schema("Foreshhh/vlsbench", files[0])
         return
-    picked = balanced_subset(list(ds), "category", target=500)
-    materialize("vls_bench", picked, "instruction", "image", "category")
+    # pass 1: cheap category read -> (file, row) per category
+    items = []
+    for f in files:
+        cats = read_table("Foreshhh/vlsbench", f, columns=["category"]).column("category").to_pylist()
+        items.extend(((f, i), cats[i]) for i in range(len(cats)))
+    sel = balanced_pick(items, target=500)            # list of (file, row)
+    # pass 2: extract only selected rows, one file at a time
+    by_file = {}
+    for f, i in sel:
+        by_file.setdefault(f, []).append(i)
+    rows = []
+    for f, idxs in by_file.items():
+        t = read_table("Foreshhh/vlsbench", f)
+        instr, cat, img = t.column("instruction"), t.column("category"), t.column("image")
+        for i in idxs:
+            rows.append({"prompt": instr[i].as_py(), "image": img[i].as_py(), "category": cat[i].as_py()})
+    save_rows("vls_bench", rows)
 
 
 def do_holisafe(inspect_only):
-    # GATED: needs `huggingface-cli login` + accepted terms on the dataset page.
-    ds = load_dataset("etri-vilab/holisafe-bench")
-    first = inspect("holisafe", ds)
+    print("\n>>> HoliSafe (gated; type==USU, balanced 500)")
+    files = list_parquets("etri-vilab/holisafe-bench", lambda f: True)   # all parquet rows
+    print("  files:", files)
     if inspect_only:
+        show_schema("etri-vilab/holisafe-bench", files[0])
         return
-    split = list(ds.keys())[0] if isinstance(ds, datasets.DatasetDict) else None
-    tbl = ds[split] if split else ds
-    rows = [ex for ex in tbl if str(ex.get("type", "")).upper() == "USU"]
-    print("  filtered type==USU: %d/%d" % (len(rows), len(tbl)))
-    if not rows:
-        raise SystemExit("holisafe: no USU rows — check the `type` field values.")
-    picked = balanced_subset(rows, "category", target=500)
-    # image may be an Image feature OR a relative path string; handle both.
-    img_field = (image_columns(tbl) or ["image"])[0]
-    base = os.path.dirname(getattr(tbl, "cache_files", [{}])[0].get("filename", "")) if tbl.cache_files else ""
-    materialize("holisafe", picked, "query", img_field, "category", base_dir=base)
+    # pass 1: category + type (cheap)
+    items = []
+    for f in files:
+        t = read_table("etri-vilab/holisafe-bench", f, columns=["category", "type"])
+        cats, typs = t.column("category").to_pylist(), t.column("type").to_pylist()
+        for i in range(len(cats)):
+            if str(typs[i]).upper() == "USU":
+                items.append(((f, i), cats[i]))
+    print("  USU rows:", len(items))
+    sel = balanced_pick(items, target=500)
+    by_file = {}
+    for f, i in sel:
+        by_file.setdefault(f, []).append(i)
+    rows = []
+    for f, idxs in by_file.items():
+        t = read_table("etri-vilab/holisafe-bench", f)
+        q, cat, img = t.column("query"), t.column("category"), t.column("image")
+        for i in idxs:
+            rows.append({"prompt": q[i].as_py(), "image": img[i].as_py(), "category": cat[i].as_py()})
+    save_rows("holisafe", rows)
 
 
 BUILDERS = {
@@ -241,14 +255,15 @@ BUILDERS = {
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dataset", default="all", choices=["all"] + list(BUILDERS))
-    ap.add_argument("--inspect_only", action="store_true",
-                    help="print structure (splits/cols/first/category counts) and EXIT")
+    ap.add_argument("--inspect_only", action="store_true")
     args = ap.parse_args()
     for name in (list(BUILDERS) if args.dataset == "all" else [args.dataset]):
         try:
             BUILDERS[name](args.inspect_only)
         except Exception as e:
+            import traceback
             print("\n[!!] %s failed: %s" % (name, e))
+            traceback.print_exc()
             if not args.inspect_only:
                 raise
 
