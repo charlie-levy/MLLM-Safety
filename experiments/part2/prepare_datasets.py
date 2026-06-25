@@ -37,10 +37,19 @@ import random
 import argparse
 from collections import Counter
 
-os.environ.setdefault("OPENBLAS_NUM_THREADS", "1")
-os.environ.setdefault("OMP_NUM_THREADS", "1")
+# Cap EVERY native thread pool before importing datasets/pyarrow — the login node
+# has RLIMIT_NPROC=100, and Arrow's "Generating split" spawns a CPU-sized pool
+# (32+) that tips it over -> `std::system_error: Resource temporarily unavailable`.
+for _v in ("OPENBLAS_NUM_THREADS", "OMP_NUM_THREADS", "MKL_NUM_THREADS",
+           "NUMEXPR_NUM_THREADS", "RAYON_NUM_THREADS", "ARROW_NUM_THREADS"):
+    os.environ.setdefault(_v, "1")
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 os.environ.setdefault("HF_HUB_DISABLE_XET", "1")
 os.environ.setdefault("HF_HUB_ENABLE_HF_TRANSFER", "0")
+
+import pyarrow                                      # noqa: E402
+pyarrow.set_cpu_count(1)
+pyarrow.set_io_thread_count(1)
 
 import requests                                    # noqa: E402
 from PIL import Image                              # noqa: E402
