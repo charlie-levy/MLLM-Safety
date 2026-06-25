@@ -136,6 +136,37 @@ def _as_int(v):
         return None
 
 
+def stream_write(repo, name, by_file, text_col):
+    """Memory-frugal materialize: read each parquet ONE row-group at a time and
+    write only the selected rows' images immediately (never load the whole file
+    or hold all images in RAM). by_file: {parquet_path: set(row_idx_within_file)}.
+    """
+    out_dir = os.path.join(OUT_ROOT, name)
+    img_dir = os.path.join(out_dir, "images")
+    os.makedirs(img_dir, exist_ok=True)
+    cols = ["image", text_col, "category"]
+    idx = 0
+    with open(os.path.join(out_dir, "manifest.jsonl"), "w", encoding="utf-8") as mf:
+        for f, want in by_file.items():
+            local = hf_hub_download(repo, f, repo_type="dataset", revision=PARQUET_REV)
+            pf = pq.ParquetFile(local)
+            gi = 0
+            for rg in range(pf.num_row_groups):
+                tb = pf.read_row_group(rg, columns=cols)
+                ic, tc, cc = tb.column("image"), tb.column(text_col), tb.column("category")
+                for j in range(tb.num_rows):
+                    if gi in want:
+                        ip = os.path.join(img_dir, "%05d.png" % idx)
+                        to_pil(ic[j].as_py()).save(ip)
+                        mf.write(json.dumps({
+                            "idx": idx, "dataset": name, "category": str(cc[j].as_py()),
+                            "prompt": tc[j].as_py(), "image_path": ip}, ensure_ascii=False) + "\n")
+                        idx += 1
+                    gi += 1
+                del tb
+    print("[%s] materialized %d samples -> %s/manifest.jsonl" % (name, idx, out_dir))
+
+
 def show_schema(repo, fname):
     local = hf_hub_download(repo, fname, repo_type="dataset", revision=PARQUET_REV)
     pf = pq.ParquetFile(local)
@@ -202,17 +233,10 @@ def do_vls_bench(inspect_only):
         cats = read_table("Foreshhh/vlsbench", f, columns=["category"]).column("category").to_pylist()
         items.extend(((f, i), cats[i]) for i in range(len(cats)))
     sel = balanced_pick(items, target=500)            # list of (file, row)
-    # pass 2: extract only selected rows, one file at a time
     by_file = {}
     for f, i in sel:
-        by_file.setdefault(f, []).append(i)
-    rows = []
-    for f, idxs in by_file.items():
-        t = read_table("Foreshhh/vlsbench", f)
-        instr, cat, img = t.column("instruction"), t.column("category"), t.column("image")
-        for i in idxs:
-            rows.append({"prompt": instr[i].as_py(), "image": img[i].as_py(), "category": cat[i].as_py()})
-    save_rows("vls_bench", rows)
+        by_file.setdefault(f, set()).add(i)
+    stream_write("Foreshhh/vlsbench", "vls_bench", by_file, "instruction")
 
 
 def do_holisafe(inspect_only):
@@ -234,14 +258,8 @@ def do_holisafe(inspect_only):
     sel = balanced_pick(items, target=500)
     by_file = {}
     for f, i in sel:
-        by_file.setdefault(f, []).append(i)
-    rows = []
-    for f, idxs in by_file.items():
-        t = read_table("etri-vilab/holisafe-bench", f)
-        q, cat, img = t.column("query"), t.column("category"), t.column("image")
-        for i in idxs:
-            rows.append({"prompt": q[i].as_py(), "image": img[i].as_py(), "category": cat[i].as_py()})
-    save_rows("holisafe", rows)
+        by_file.setdefault(f, set()).add(i)
+    stream_write("etri-vilab/holisafe-bench", "holisafe", by_file, "query")
 
 
 BUILDERS = {
