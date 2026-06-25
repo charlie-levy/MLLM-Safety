@@ -33,10 +33,9 @@ import run_eval as RE                                          # noqa: E402  (ch
 from judge_sqa_utility_hf import Judge, DEFAULT_MODEL          # noqa: E402
 from metrics import extract_answer_letter                      # noqa: E402
 from PIL import Image                                          # noqa: E402
-from corruption_lib import apply_corruption, PART1_CORRUPTIONS  # noqa: E402
+from corruption_lib import apply_corruption, PART1_CORRUPTIONS, severity_for  # noqa: E402
 
 MODEL = "llava_cot_tis"   # Part 1 is TIS-only
-SEVERITY = 3
 SQA_JSON = "datasets/scienceqa_250.json"   # relative to REPO (RE import chdir'd us here)
 
 
@@ -58,6 +57,7 @@ def main():
     args = ap.parse_args()
 
     debug = args.debug_n and args.debug_n > 0
+    sev = severity_for(args.corruption)
     out_path = os.path.join(args.output_dir, "sqa_%s_tis.jsonl" % args.corruption)
     if not debug:
         os.makedirs(args.output_dir, exist_ok=True)
@@ -79,7 +79,7 @@ def main():
 
     print("=" * 78, flush=True)
     print("  Part1 SQA | corruption=%s(sev%d) model=%s | %d samples%s"
-          % (args.corruption, SEVERITY, MODEL, len(items), "  [DEBUG]" if debug else ""), flush=True)
+          % (args.corruption, sev, MODEL, len(items), "  [DEBUG]" if debug else ""), flush=True)
     print("=" * 78, flush=True)
 
     model, processor = RE.load(MODEL)
@@ -92,7 +92,7 @@ def main():
         if idx in written:
             continue
         image = Image.open(it["image_path"]).convert("RGB")
-        image = apply_corruption(image, args.corruption, severity=SEVERITY)
+        image = apply_corruption(image, args.corruption, severity=sev)
 
         resp = RE.generate_one(model, processor, image, it["prompt"])
         verdict = judge.ask(it["prompt"], it["label"], resp)   # True / False / None

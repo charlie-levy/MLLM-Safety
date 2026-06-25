@@ -34,10 +34,10 @@ sys.path.insert(0, os.path.join(REPO, "experiments", "common"))
 import run_eval as RE                                          # noqa: E402
 from dataset_loader import load_figstep, load_new_attack       # noqa: E402
 from judge_grid_guards import LlamaGuardTextJudge, LLAMAGUARD_MODEL  # noqa: E402
-from corruption_lib import apply_corruption, PART1_CORRUPTIONS, is_perception_failure  # noqa: E402
+from corruption_lib import (apply_corruption, PART1_CORRUPTIONS, severity_for,  # noqa: E402
+                            is_perception_failure)
 
 MODEL = "llava_cot_tis"   # Part 1 is TIS-only
-SEVERITY = 3
 
 
 def load_samples(dataset):
@@ -58,6 +58,7 @@ def main():
     args = ap.parse_args()
 
     debug = args.debug_n and args.debug_n > 0
+    sev = severity_for(args.corruption)
     out_path = os.path.join(args.output_dir, "%s_%s_tis_asr.jsonl" % (args.dataset, args.corruption))
     if not debug:
         os.makedirs(args.output_dir, exist_ok=True)
@@ -78,7 +79,7 @@ def main():
 
     print("=" * 78, flush=True)
     print("  Part1 ASR | dataset=%s corruption=%s(sev%d) model=%s | %d samples%s"
-          % (args.dataset, args.corruption, SEVERITY, MODEL, len(samples),
+          % (args.dataset, args.corruption, sev, MODEL, len(samples),
              "  [DEBUG]" if debug else ""), flush=True)
     print("=" * 78, flush=True)
 
@@ -93,7 +94,7 @@ def main():
         prompt = s["prompt"]
         image = s["image"]
         if image is not None:
-            image = apply_corruption(image, args.corruption, severity=SEVERITY)
+            image = apply_corruption(image, args.corruption, severity=sev)
 
         resp = RE.generate_one(model, processor, image, prompt)
         _, raw, fields = judge.judge_batch([(prompt, resp)])[0]

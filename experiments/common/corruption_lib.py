@@ -16,11 +16,29 @@ import numpy as np
 from PIL import Image
 from imagecorruptions import corrupt, get_corruption_names
 
-# The 10 corruptions Part 1 sweeps, all at severity=3 (per the experiment spec).
+# The 10 corruptions Part 1 sweeps. Default severity is 3, but five of them are
+# cranked to the library max (severity=5) per the researcher — the blurs, snow,
+# and jpeg were too mild at sev3 to meaningfully degrade the image signal.
 PART1_CORRUPTIONS = [
     "elastic_transform", "contrast", "frost", "defocus_blur", "glass_blur",
     "motion_blur", "zoom_blur", "snow", "fog", "jpeg_compression",
 ]
+
+# imagecorruptions severity scale is 1-5; 5 is the strongest the library offers.
+DEFAULT_SEVERITY = 3
+PART1_SEVERITIES = {
+    "defocus_blur": 5,
+    "glass_blur": 5,
+    "motion_blur": 5,
+    "snow": 5,
+    "jpeg_compression": 5,
+    # elastic_transform, contrast, frost, zoom_blur, fog stay at DEFAULT_SEVERITY (3)
+}
+
+
+def severity_for(corruption_name):
+    """Per-corruption severity (the 5 cranked ones return 5, the rest 3)."""
+    return PART1_SEVERITIES.get(corruption_name, DEFAULT_SEVERITY)
 
 # Sanity: every Part 1 corruption must exist in the installed library.
 _AVAILABLE = set(get_corruption_names())

@@ -28,7 +28,7 @@ import matplotlib.pyplot as plt                                # noqa: E402
 
 import run_eval as RE                                          # noqa: E402  (chdir's to REPO)
 from dataset_loader import load_figstep, load_new_attack       # noqa: E402
-from corruption_lib import apply_corruption, PART1_CORRUPTIONS  # noqa: E402
+from corruption_lib import apply_corruption, PART1_CORRUPTIONS, severity_for  # noqa: E402
 
 
 def first_image(samples):
@@ -51,17 +51,18 @@ def main():
     for r, (label, img) in enumerate(rows):
         print("\n[%s] orig size=%s" % (label, img.size))
         for c, corr in enumerate(PART1_CORRUPTIONS):
-            out = apply_corruption(img, corr, severity=3)
+            sev = severity_for(corr)
+            out = apply_corruption(img, corr, severity=sev)
             arr = np.asarray(out)
-            print("  %-18s size=%s dtype=%s" % (corr, out.size, arr.dtype))
+            print("  %-18s sev=%d size=%s dtype=%s" % (corr, sev, out.size, arr.dtype))
             ax = axes[r][c]
             ax.imshow(out)
             ax.axis("off")
             if r == 0:
-                ax.set_title(corr, fontsize=7)
+                ax.set_title("%s\nsev%d" % (corr, sev), fontsize=7)
             if c == 0:
                 ax.set_ylabel(label, fontsize=9)
-    plt.suptitle("Part 1 QC — 10 ImageNet-C corruptions @ severity=3", fontsize=11)
+    plt.suptitle("Part 1 QC — 10 ImageNet-C corruptions (5 of them @ sev5, rest @ sev3)", fontsize=11)
     plt.tight_layout()
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     plt.savefig(args.out, dpi=110, bbox_inches="tight")
