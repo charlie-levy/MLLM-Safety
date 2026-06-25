@@ -28,7 +28,7 @@ import matplotlib.pyplot as plt                                # noqa: E402
 
 import run_eval as RE                                          # noqa: E402  (chdir's to REPO)
 from dataset_loader import load_figstep, load_new_attack       # noqa: E402
-from corruption_lib import apply_corruption, PART1_CORRUPTIONS, severity_for  # noqa: E402
+from corruption_lib import apply_corruption, PART1_CORRUPTIONS, severity_for, JPEG_QUALITY  # noqa: E402
 
 
 def first_image(samples):
@@ -59,7 +59,9 @@ def main():
             ax.imshow(out)
             ax.axis("off")
             if r == 0:
-                ax.set_title("%s\nsev%d" % (corr, sev), fontsize=7)
+                lbl = ("%s\nq%d" % (corr, JPEG_QUALITY)) if corr == "jpeg_compression" \
+                    else ("%s\nsev%d" % (corr, sev))
+                ax.set_title(lbl, fontsize=7)
             if c == 0:
                 ax.set_ylabel(label, fontsize=9)
     plt.suptitle("Part 1 QC — 10 ImageNet-C corruptions (5 of them @ sev5, rest @ sev3)", fontsize=11)
