@@ -20,22 +20,41 @@ REPO = os.path.dirname(os.path.dirname(HERE))
 sys.path.insert(0, os.path.join(REPO, "code"))
 sys.path.insert(0, os.path.join(REPO, "experiments", "common"))
 
+import glob                                                    # noqa: E402
+import json                                                    # noqa: E402
 import numpy as np                                             # noqa: E402
 from PIL import Image                                          # noqa: E402
 import matplotlib                                              # noqa: E402
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt                                # noqa: E402
 
-import run_eval as RE                                          # noqa: E402  (chdir's to REPO)
-from dataset_loader import load_figstep, load_new_attack       # noqa: E402
+# NOTE: deliberately does NOT import run_eval/torch or call load_figstep/
+# load_new_attack — those open every image in both datasets (500+167) off Lustre
+# just to grab one. We open exactly ONE image per dataset, so this is seconds.
+import dataset_loader as DL                                    # noqa: E402  (no torch)
+import pandas as pd                                            # noqa: E402
 from corruption_lib import apply_corruption, PART1_CORRUPTIONS, severity_for, JPEG_QUALITY  # noqa: E402
 
 
-def first_image(samples):
-    for s in samples:
-        if s.get("image") is not None:
-            return s["image"].convert("RGB")
-    raise RuntimeError("no usable image in dataset")
+def one_figstep_image():
+    df = pd.read_csv(os.path.join(DL.FIGSTEP_REPO_PATH, DL.FIGSTEP_CSV))
+    for _, row in df.iterrows():
+        pat = os.path.join(DL.FIGSTEP_REPO_PATH, DL.FIGSTEP_IMAGE_DIR,
+                           "query_%s_%s_%s_*.png" % (row["dataset"], row["category_id"], row["task_id"]))
+        m = glob.glob(pat)
+        if m:
+            return Image.open(m[0]).convert("RGB")
+    raise RuntimeError("no FigStep image found under %s" % DL.FIGSTEP_IMAGE_DIR)
+
+
+def one_siuo_image():
+    sj = os.path.join(DL.NEW_ATTACKS_DIR, "siuo", "siuo.json")
+    data = json.load(open(sj, encoding="utf-8"))
+    for item in data.values():
+        ip = item.get("image_path", "")
+        if ip and os.path.exists(ip):
+            return Image.open(ip).convert("RGB")
+    raise RuntimeError("no SIUO image found via %s" % sj)
 
 
 def main():
@@ -43,8 +62,9 @@ def main():
     ap.add_argument("--out", default="/home/ch169788/experiments/part1/qc_corruption_grid.png")
     args = ap.parse_args()
 
-    rows = [("FigStep", first_image(load_figstep())),
-            ("SIUO", first_image(load_new_attack("siuo")))]
+    print("loading one FigStep + one SIUO image ...", flush=True)
+    rows = [("FigStep", one_figstep_image()),
+            ("SIUO", one_siuo_image())]
 
     ncol = len(PART1_CORRUPTIONS)
     fig, axes = plt.subplots(2, ncol, figsize=(2.0 * ncol, 4.4))
