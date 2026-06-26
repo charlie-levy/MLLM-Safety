@@ -113,6 +113,13 @@ def apply_corruption(pil_img, corruption_name, severity=3):
     if corruption_name == "jpeg_compression":
         return _jpeg_strong(rgb)          # custom strong encoder, severity ignored
 
+    # imagecorruptions hard-requires >=32x32 (it raises otherwise). A few SIUO
+    # samples are sub-32px; upscale them so the library doesn't crash.
+    if min(rgb.size) < 32:
+        w, h = rgb.size
+        s = 32.0 / min(w, h)
+        rgb = rgb.resize((max(32, round(w * s)), max(32, round(h * s))), Image.BICUBIC)
+
     arr = np.asarray(rgb, dtype=np.uint8)
     if arr.ndim != 3 or arr.shape[2] != 3:
         raise ValueError("expected H x W x 3 uint8, got shape %s" % (arr.shape,))
