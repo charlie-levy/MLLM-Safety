@@ -10,10 +10,11 @@ import json
 
 P1 = "/home/ch169788/experiments/part1/results"
 P2 = "/home/ch169788/experiments/part2/results"
+P3 = "/home/ch169788/experiments/part3/results"
 CORRS = ["elastic_transform", "contrast", "frost", "defocus_blur", "glass_blur",
          "motion_blur", "zoom_blur", "snow", "fog", "jpeg_compression"]
 
-# expected row counts (FigStep 500, SIUO 167, SQA 250; Part 2 materialized counts)
+# expected row counts (FigStep 500, SIUO 167, SQA 250; Part 2/3 materialized counts)
 EXPECT = {}
 for c in CORRS:
     EXPECT[os.path.join(P1, "figstep_%s_tis_asr.jsonl" % c)] = 500
@@ -22,6 +23,10 @@ for c in CORRS:
 for ds, n in [("mmsafety_tiny", 168), ("spa_vl", 265), ("vls_bench", 500), ("holisafe", 494)]:
     for m in ("base", "tis"):
         EXPECT[os.path.join(P2, "%s_%s_clean.jsonl" % (ds, m))] = n
+# Part 3: corruption sweep on the 3 image-borne datasets (TIS), responses only
+for ds, n in [("mmsafety_tiny", 168), ("vls_bench", 500), ("holisafe", 494)]:
+    for c in CORRS:
+        EXPECT[os.path.join(P3, "%s_%s_tis_responses.jsonl" % (ds, c))] = n
 
 
 def n_rows(p):
