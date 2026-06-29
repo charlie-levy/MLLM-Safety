@@ -11,6 +11,7 @@ import json
 P1 = "/home/ch169788/experiments/part1/results"
 P2 = "/home/ch169788/experiments/part2/results"
 P3 = "/home/ch169788/experiments/part3/results"
+P4 = "/home/ch169788/experiments/part4/results"
 CORRS = ["elastic_transform", "contrast", "frost", "defocus_blur", "glass_blur",
          "motion_blur", "zoom_blur", "snow", "fog", "jpeg_compression"]
 
@@ -27,6 +28,12 @@ for ds, n in [("mmsafety_tiny", 168), ("spa_vl", 265), ("vls_bench", 500), ("hol
 for ds, n in [("mmsafety_tiny", 168), ("vls_bench", 500), ("holisafe", 494)]:
     for c in CORRS:
         EXPECT[os.path.join(P3, "%s_%s_tis_responses.jsonl" % (ds, c))] = n
+# Part 4: SIUO x 4 conditions x 4 models (responses only)
+P4_CONDS = ["clean", "zoom_blur", "snow", "glass_blur"]
+P4_MODELS = ["llava_cot", "base_llama", "r1_onevision", "qwen2_5_vl"]
+for c in P4_CONDS:
+    for m in P4_MODELS:
+        EXPECT[os.path.join(P4, "siuo_%s_%s_responses.jsonl" % (c, m))] = 167
 
 
 def n_rows(p):
