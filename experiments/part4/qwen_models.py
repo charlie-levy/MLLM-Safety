@@ -27,15 +27,31 @@ QWEN_MODEL_IDS = {
 
 def load_qwen(model_key):
     """Load a Qwen2.5-VL-family model + processor (bf16, device_map=auto)."""
+
     model_id = QWEN_MODEL_IDS[model_key]
-    processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=True)
+
+    # -----------------------------
+    # MODEL (unchanged logic)
+    # -----------------------------
     model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
         model_id,
         trust_remote_code=True,
         torch_dtype=torch.bfloat16,
         device_map="auto",
     ).eval()
+
+    # -----------------------------
+    # PROCESSOR FIX (KEY PART)
+    # -----------------------------
+    # Always use the stable Qwen2.5-VL processor
+    # (avoids broken HF config in R1-Onevision repo)
+    processor = AutoProcessor.from_pretrained(
+        "Qwen/Qwen2.5-VL-7B-Instruct",
+        trust_remote_code=True
+    )
+
     processor.tokenizer.padding_side = "left"
+
     return model, processor
 
 
