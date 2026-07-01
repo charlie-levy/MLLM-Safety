@@ -24,6 +24,7 @@ lora_dropout: 0.05
 lora_target: all                    # paper unspecified -> LLaMA-Factory default (all linear)
 freeze_vision_tower: true            # train LM/cross-attn LoRA only; keep the ViT frozen
 freeze_multi_modal_projector: true
+use_reentrant_gc: false              # non-reentrant GC — fixes mllama+LoRA+frozen-ViT step-0 backward crash
 
 ### dataset
 dataset: think_in_safety_corrupt     # registered by prep_tis_corrupted.py (corrupted copy)
