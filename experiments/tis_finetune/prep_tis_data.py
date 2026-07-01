@@ -61,7 +61,14 @@ def main():
     for r in recs:
         abs_imgs = []
         for ip in (r.get("images", []) or []):
-            p = ip if os.path.isabs(ip) else os.path.join(base, ip)
+            if os.path.isabs(ip):
+                p = ip
+            else:
+                # images.zip extracts with the category folders at its root, but the
+                # JSON paths carry a spurious "images/" prefix not present on disk
+                # (e.g. "images/bad_ads/x.png" -> "<base>/bad_ads/x.png"). Strip it.
+                rel = ip[len("images/"):] if ip.startswith("images/") else ip
+                p = os.path.join(base, rel)
             if not os.path.isfile(p):
                 missing += 1
             abs_imgs.append(p)
