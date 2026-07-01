@@ -1,0 +1,55 @@
+### Think-in-Safety + RANDOM IMAGE CORRUPTIONS — LoRA SFT for LLaVA-CoT.
+### APPLES-TO-APPLES with train_llava_cot_tis_lora.yaml: the ONLY differences are
+### `dataset` (corrupted copy) and `output_dir`. Every hyperparameter is identical.
+###
+### Corrupted data (prep_tis_corrupted.py): each image randomly assigned
+### clean / zoom_blur(sev3) / snow(sev3) / glass_blur(sev5) via the same
+### corruption_lib used in Parts 1/3/4. Original 'think_in_safety' is untouched.
+###
+### Hyperparameters match the TIS paper (Lou et al. 2025, arXiv:2505.06538):
+### LoRA rank 8 / alpha 16 / dropout 0.05, 1.5 epochs, lr 1e-5, cosine,
+### warmup 0.1, per-device bs 1, grad-accum 8, bf16, LLaMA-Factory.
+
+### model
+model_name_or_path: Xkev/Llama-3.2V-11B-cot     # same base as your llava_cot evals (cached)
+trust_remote_code: true
+
+### method
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_rank: 8
+lora_alpha: 16
+lora_dropout: 0.05
+lora_target: all                    # paper unspecified -> LLaMA-Factory default (all linear)
+freeze_vision_tower: true            # train LM/cross-attn LoRA only; keep the ViT frozen
+freeze_multi_modal_projector: true
+
+### dataset
+dataset: think_in_safety_corrupt     # registered by prep_tis_corrupted.py (corrupted copy)
+template: mllama                     # Llama-3.2-Vision family template
+cutoff_len: 4096                     # bump if prep's p99 token estimate exceeds this
+overwrite_cache: true
+preprocessing_num_workers: 8         # runs on the COMPUTE node (high nproc) — safe
+dataloader_num_workers: 4
+dataset_dir: data
+
+### output
+output_dir: saves/llava_cot_tis_corrupt_lora
+logging_steps: 10
+save_steps: 200
+save_total_limit: 3
+plot_loss: true
+overwrite_output_dir: true
+report_to: none
+
+### train
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 8       # effective batch = 8
+learning_rate: 1.0e-5
+num_train_epochs: 1.5
+lr_scheduler_type: cosine
+warmup_ratio: 0.1
+bf16: true
+ddp_timeout: 180000000
+# resume_from_checkpoint: saves/llava_cot_tis_corrupt_lora/checkpoint-XXX   # uncomment to resume
