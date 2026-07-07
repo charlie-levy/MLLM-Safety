@@ -31,6 +31,15 @@ def main():
     ap.add_argument("--out_dir", default="/home/ch169788/experiments/part7/data")
     args = ap.parse_args()
 
+    # Force single-threaded arrow so parquet->arrow generation doesn't spawn a thread pool
+    # (the Newton login node caps processes; compute nodes are fine). Harmless elsewhere.
+    try:
+        import pyarrow
+        pyarrow.set_cpu_count(1)
+        pyarrow.set_io_thread_count(1)
+    except Exception:
+        pass
+
     from datasets import load_dataset
 
     img_dir = os.path.join(args.out_dir, "sqa_test_images")
