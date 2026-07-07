@@ -6,6 +6,8 @@
 ### model
 model_name_or_path: Xkev/Llama-3.2V-11B-cot
 trust_remote_code: true
+enable_liger_kernel: true            # fused linear-CE: never materializes the [1,seq,vocab] logits
+                                     # tensor -> fixes the vision-only lm_head OOM. Same loss/grads.
 
 ### method
 stage: sft
