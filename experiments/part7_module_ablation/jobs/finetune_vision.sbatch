@@ -14,6 +14,7 @@ source /apps/anaconda/anaconda-2024.10/etc/profile.d/conda.sh
 conda activate llamafactory
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_HUB_DISABLE_XET=1 HF_HUB_ENABLE_HF_TRANSFER=0
 export OMP_NUM_THREADS=8 TOKENIZERS_PARALLELISM=false
+export HF_DATASETS_CACHE=/home/ch169788/experiments/part7/hfcache/vision   # per-job cache -> no concurrent-build race
 
 cd ~/LLaMA-Factory
 llamafactory-cli train ~/llava_cot_eval/experiments/part7_module_ablation/configs/train_zoomblur75_vision_lora.yaml
