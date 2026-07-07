@@ -15,6 +15,7 @@ conda activate llamafactory
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_HUB_DISABLE_XET=1 HF_HUB_ENABLE_HF_TRANSFER=0
 export OMP_NUM_THREADS=8 TOKENIZERS_PARALLELISM=false
 export HF_DATASETS_CACHE=/home/ch169788/experiments/part7/hfcache/llm   # per-job cache -> no concurrent-build race
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True   # defrag (harmless; llm-only already fits)
 
 cd ~/LLaMA-Factory
 llamafactory-cli train ~/llava_cot_eval/experiments/part7_module_ablation/configs/train_zoomblur75_llm_lora.yaml
