@@ -2,10 +2,11 @@
 """
 prep_mathvista.py — materialize MathVista *testmini* (1000) as offline files for the GPU eval.
 
-Loads ONLY the testmini parquet directly from the HF hub cache (avoids the hub/offline/
-cache-builder path and any train/test regeneration). Runs anywhere in the REU env.
+Reads the testmini parquet DIRECTLY with single-threaded pyarrow (use_threads=False) — no
+`datasets` ThreadPoolExecutor (which hits the Newton login-node process cap), no OOM. Same data
+(AI4Math/MathVista testmini), just slower.
 
-  export HF_HUB_DISABLE_XET=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+  export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
   python3 prep_mathvista.py
 
 Writes (default under /home/ch169788/experiments/part7/data):
@@ -13,8 +14,8 @@ Writes (default under /home/ch169788/experiments/part7/data):
                                   question_type, answer_type, metadata, image_file}
     mathvista_images/<pid>.png   the decoded image for each problem
 
-Uses the built-in `query` field verbatim (the paper's exact prompt); answer/question_type/
-answer_type/precision/choices pass through unchanged for the official scorer.
+Uses the built-in `query` field verbatim (the paper's exact prompt); the rest pass through
+unchanged for the official scorer.
 """
 import os
 import io
@@ -24,10 +25,12 @@ import argparse
 
 MV_TESTMINI_GLOB = ("~/.cache/huggingface/hub/datasets--AI4Math--MathVista/"
                     "snapshots/*/data/testmini-*.parquet")
+NEEDED = ["pid", "question", "decoded_image", "choices", "unit", "precision",
+          "answer", "question_type", "answer_type", "metadata", "query"]
 
 
 def to_pil(val):
-    """MathVista 'decoded_image' is a HF Image; from a raw parquet it's a {'bytes','path'} dict."""
+    """MathVista 'decoded_image' comes from parquet as a {'bytes','path'} struct."""
     from PIL import Image
     if val is None:
         return None
@@ -44,48 +47,49 @@ def main():
     ap.add_argument("--parquet_glob", default=MV_TESTMINI_GLOB)
     args = ap.parse_args()
 
-    try:
-        import pyarrow
-        pyarrow.set_cpu_count(1)
-        pyarrow.set_io_thread_count(1)
-    except Exception:
-        pass
-    from datasets import load_dataset
+    import pyarrow
+    import pyarrow.parquet as pq
+    pyarrow.set_cpu_count(1)
 
     files = sorted(glob.glob(os.path.expanduser(args.parquet_glob)))
     if not files:
-        raise SystemExit("MathVista testmini parquet not found in HF cache:\n  %s\n"
-                         "(download it first with: python -c \"from datasets import load_dataset; "
-                         "load_dataset('AI4Math/MathVista', split='testmini')\" on the login node)"
+        raise SystemExit("MathVista testmini parquet not found in HF cache:\n  %s"
                          % os.path.expanduser(args.parquet_glob))
-    print("[prep_mv] loading testmini parquet(s) directly:\n  %s" % "\n  ".join(files), flush=True)
-    ds = load_dataset("parquet", data_files=files, split="train")
-    print("[prep_mv] %d testmini examples" % len(ds), flush=True)
+    print("[prep_mv] reading testmini parquet(s) single-threaded:\n  %s" % "\n  ".join(files), flush=True)
+    tabs = [pq.read_table(f, use_threads=False) for f in files]
+    table = pyarrow.concat_tables(tabs) if len(tabs) > 1 else tabs[0]
+    n = table.num_rows
+    cols = {c: table.column(c) for c in table.column_names}
+    print("[prep_mv] %d testmini examples" % n, flush=True)
+
+    def get(c, i):
+        return cols[c][i].as_py() if c in cols else None
 
     img_dir = os.path.join(args.out_dir, "mathvista_images")
     os.makedirs(img_dir, exist_ok=True)
 
     recs = []
-    for i, ex in enumerate(ds):
-        pid = str(ex["pid"])
-        img = to_pil(ex["decoded_image"])
+    for i in range(n):
+        pid = str(get("pid", i))
+        img = to_pil(get("decoded_image", i))
         image_file = os.path.join("mathvista_images", "%s.png" % pid)
         img.convert("RGB").save(os.path.join(args.out_dir, image_file))
+        ch = get("choices", i)
         recs.append({
             "pid": pid,
-            "query": ex["query"],
-            "question": ex["question"],
-            "choices": list(ex["choices"]) if ex.get("choices") is not None else None,
-            "unit": ex.get("unit"),
-            "precision": ex.get("precision"),
-            "answer": ex["answer"],
-            "question_type": ex["question_type"],
-            "answer_type": ex["answer_type"],
-            "metadata": ex.get("metadata", {}),
+            "query": get("query", i),
+            "question": get("question", i),
+            "choices": list(ch) if ch is not None else None,
+            "unit": get("unit", i),
+            "precision": get("precision", i),
+            "answer": get("answer", i),
+            "question_type": get("question_type", i),
+            "answer_type": get("answer_type", i),
+            "metadata": get("metadata", i) or {},
             "image_file": image_file,
         })
         if (i + 1) % 200 == 0:
-            print("  %d/%d" % (i + 1, len(ds)), flush=True)
+            print("  %d/%d" % (i + 1, n), flush=True)
 
     out_json = os.path.join(args.out_dir, "mathvista_testmini.json")
     json.dump(recs, open(out_json, "w"), ensure_ascii=False)

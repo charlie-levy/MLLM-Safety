@@ -1,15 +1,14 @@
 #!/usr/bin/env python
 """
 prep_sqa_test.py — materialize the FULL ScienceQA *test* split (paper-faithful) as offline
-files the GPU eval can read (compute nodes have no internet).
+files the GPU eval can read.
 
-Loads ONLY the test parquet directly from the HF hub cache (populated by the earlier
-`hf`/load_dataset download). This deliberately avoids load_dataset("...ScienceQA", split="test"),
-which regenerates the huge train+val splits too and OOMs the login node. Reading one parquet
-also needs no hub/offline/cache-builder logic, so it runs anywhere.
+Reads the test parquet DIRECTLY with single-threaded pyarrow (use_threads=False). This avoids
+(a) load_dataset regenerating the huge train/val splits (OOM) and (b) the `datasets` ArrowReader
+ThreadPoolExecutor (which hits the Newton login-node process cap: "can't start new thread").
+Pure pyarrow spawns no threads — same data (derek-thomas/ScienceQA test, 4,241), just slower.
 
-Run in the REU env (login or compute node):
-  export HF_HUB_DISABLE_XET=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
+  export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1
   python3 prep_sqa_test.py
 
 Writes (default under /home/ch169788/experiments/part7/data):
@@ -17,8 +16,8 @@ Writes (default under /home/ch169788/experiments/part7/data):
                                   subject, grade, image_file (or null if text-only)}
     sqa_test_images/<idx>.png    images (only for items that have one)
 
-Source parquet: derek-thomas/ScienceQA test (4,241). answer = int index into choices;
-gold_letter = ['A'..'E'][answer]. Text-only items (image=None) are kept (paper evals the full test).
+answer = int index into choices; gold_letter = ['A'..'E'][answer]. Text-only items (image=None)
+are kept (the paper evals the full test set).
 """
 import os
 import io
@@ -29,10 +28,11 @@ import argparse
 OPTIONS = ["A", "B", "C", "D", "E"]
 SQA_TEST_GLOB = ("~/.cache/huggingface/hub/datasets--derek-thomas--ScienceQA/"
                  "snapshots/*/data/test-*.parquet")
+NEEDED = ["image", "question", "choices", "answer", "hint", "subject", "grade"]
 
 
 def to_pil(val):
-    """ScienceQA 'image' is a HF Image; from a raw parquet it's a {'bytes','path'} dict."""
+    """ScienceQA 'image' comes from parquet as a {'bytes','path'} struct (or None)."""
     from PIL import Image
     if val is None:
         return None
@@ -49,31 +49,31 @@ def main():
     ap.add_argument("--parquet_glob", default=SQA_TEST_GLOB)
     args = ap.parse_args()
 
-    try:
-        import pyarrow
-        pyarrow.set_cpu_count(1)
-        pyarrow.set_io_thread_count(1)
-    except Exception:
-        pass
-    from datasets import load_dataset
+    import pyarrow
+    import pyarrow.parquet as pq
+    pyarrow.set_cpu_count(1)
 
     files = sorted(glob.glob(os.path.expanduser(args.parquet_glob)))
     if not files:
-        raise SystemExit("ScienceQA test parquet not found in HF cache:\n  %s\n"
-                         "(download it first with: python -c \"from datasets import load_dataset; "
-                         "load_dataset('derek-thomas/ScienceQA', split='test')\" on the login node)"
+        raise SystemExit("ScienceQA test parquet not found in HF cache:\n  %s"
                          % os.path.expanduser(args.parquet_glob))
-    print("[prep_sqa] loading test parquet(s) directly:\n  %s" % "\n  ".join(files), flush=True)
-    ds = load_dataset("parquet", data_files=files, split="train")   # single file -> 'train' handle
-    print("[prep_sqa] %d test examples" % len(ds), flush=True)
+    print("[prep_sqa] reading test parquet(s) single-threaded:\n  %s" % "\n  ".join(files), flush=True)
+    tabs = [pq.read_table(f, use_threads=False) for f in files]
+    table = pyarrow.concat_tables(tabs) if len(tabs) > 1 else tabs[0]
+    n = table.num_rows
+    cols = {c: table.column(c) for c in table.column_names}
+    print("[prep_sqa] %d test examples" % n, flush=True)
+
+    def get(c, i):
+        return cols[c][i].as_py() if c in cols else None
 
     img_dir = os.path.join(args.out_dir, "sqa_test_images")
     os.makedirs(img_dir, exist_ok=True)
 
     recs = []
     n_img = n_txt = 0
-    for idx, ex in enumerate(ds):
-        img = to_pil(ex["image"])
+    for idx in range(n):
+        img = to_pil(get("image", idx))
         image_file = None
         if img is not None:
             image_file = os.path.join("sqa_test_images", "%05d.png" % idx)
@@ -81,20 +81,20 @@ def main():
             n_img += 1
         else:
             n_txt += 1
-        ans = int(ex["answer"])
+        ans = int(get("answer", idx))
         recs.append({
             "idx": idx,
-            "question": ex["question"],
-            "choices": list(ex["choices"]),
+            "question": get("question", idx),
+            "choices": list(get("choices", idx)),
             "answer_idx": ans,
             "gold_letter": OPTIONS[ans],
-            "hint": ex.get("hint", "") or "",
-            "subject": ex.get("subject", ""),
-            "grade": ex.get("grade", ""),
+            "hint": get("hint", idx) or "",
+            "subject": get("subject", idx) or "",
+            "grade": get("grade", idx) or "",
             "image_file": image_file,
         })
         if (idx + 1) % 500 == 0:
-            print("  %d/%d  (img=%d txt=%d)" % (idx + 1, len(ds), n_img, n_txt), flush=True)
+            print("  %d/%d  (img=%d txt=%d)" % (idx + 1, n, n_img, n_txt), flush=True)
 
     out_json = os.path.join(args.out_dir, "scienceqa_test.json")
     json.dump(recs, open(out_json, "w"), ensure_ascii=False)
