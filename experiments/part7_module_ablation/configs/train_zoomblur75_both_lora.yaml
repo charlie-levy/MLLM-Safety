@@ -1,0 +1,49 @@
+### Module-ablation LoRA SFT #3 — LLM + VISION-ENCODER (BOTH).
+### TIS + 75% zoom_blur(sev2) images. LoRA on BOTH the language model and the vision tower.
+### APPLES-TO-APPLES with the other two cells — the ONLY differences are `output_dir`
+### and the freeze flags. Neither tower frozen; only the projector is held frozen.
+
+### model
+model_name_or_path: Xkev/Llama-3.2V-11B-cot
+trust_remote_code: true
+
+### method
+stage: sft
+do_train: true
+finetuning_type: lora
+lora_rank: 8
+lora_alpha: 16
+lora_dropout: 0.05
+lora_target: all                     # -> LoRA on BOTH towers (neither frozen)
+freeze_vision_tower: false           # ViT TRAINED (LoRA)
+freeze_language_model: false         # LM  TRAINED (LoRA)
+freeze_multi_modal_projector: true   # projector frozen (held constant across all 3 cells)
+use_reentrant_gc: false
+
+### dataset
+dataset: think_in_safety_zoomblur75  # registered by prep_tis_zoomblur75.py
+template: mllama
+cutoff_len: 4096
+overwrite_cache: true
+preprocessing_num_workers: 8
+dataloader_num_workers: 4
+dataset_dir: data
+
+### output
+output_dir: saves/llava_cot_tis_zoomblur75_both_lora
+logging_steps: 10
+save_steps: 200
+save_total_limit: 3
+plot_loss: true
+overwrite_output_dir: true
+report_to: none
+
+### train
+per_device_train_batch_size: 1
+gradient_accumulation_steps: 8
+learning_rate: 1.0e-5
+num_train_epochs: 1.5
+lr_scheduler_type: cosine
+warmup_ratio: 0.1
+bf16: true
+ddp_timeout: 180000000
