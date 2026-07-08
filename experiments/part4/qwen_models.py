@@ -22,6 +22,7 @@ from qwen_vl_utils import process_vision_info
 QWEN_MODEL_IDS = {
     "qwen2_5_vl":   "Qwen/Qwen2.5-VL-7B-Instruct",   # base for R1-Onevision
     "r1_onevision": "Fancy-MLLM/R1-Onevision-7B",    # reasoning version
+    "r1_onevision_nothink": "Fancy-MLLM/R1-Onevision-7B",  # SAME weights; reasoning suppressed at inference (see no_think)
 }
 
 
@@ -56,10 +57,16 @@ def load_qwen(model_key):
 
 
 @torch.inference_mode()
-def generate_one_qwen(model, processor, image, prompt, max_new_tokens=4096):
+def generate_one_qwen(model, processor, image, prompt, max_new_tokens=4096, no_think=False):
     """Greedy single-sample generation, identical pattern to the advisor's
     run_r1_onevision (apply_chat_template(tokenize=False) -> process_vision_info
-    -> processor -> generate(do_sample=False))."""
+    -> processor -> generate(do_sample=False)).
+
+    no_think=True: prefill a CLOSED, EMPTY <think></think> block onto the assistant
+    turn so the R1-style model skips its reasoning and generates the answer directly.
+    R1-Onevision is Qwen2.5-VL-based (no Qwen3 enable_thinking flag), and its responses
+    always open with a <think>...</think> block — so this prefill is the reliable way to
+    turn reasoning off. The decoded output is what comes AFTER the block (the answer)."""
     content = []
     if image is not None:
         content.append({"type": "image", "image": image})
@@ -67,6 +74,8 @@ def generate_one_qwen(model, processor, image, prompt, max_new_tokens=4096):
     messages = [{"role": "user", "content": content}]
 
     text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+    if no_think:
+        text = text + "<think>\n\n</think>\n\n"
     image_inputs, video_inputs = process_vision_info(messages)
     inputs = processor(text=[text], images=image_inputs, videos=video_inputs,
                        padding=True, return_tensors="pt").to(model.device)

@@ -10,6 +10,7 @@ Models:
     llamav_o1     reasoning   (omkarthawakar/LlamaV-o1)                  } Llama family (extra)
     r1_onevision  reasoning   (Fancy-MLLM/R1-Onevision-7B)              } Qwen pair
     qwen2_5_vl    base        (Qwen/Qwen2.5-VL-7B-Instruct)             }
+    r1_onevision_nothink  R1-Onevision with reasoning suppressed (<think></think> prefill)
 
 Apples-to-apples: same SIUO samples, same corruption (corruption_lib), greedy
 decoding for all. Loading/generation REUSE the established paths UNCHANGED:
@@ -43,7 +44,7 @@ from corruption_lib import apply_corruption, severity_for, is_perception_failure
 
 LLAMA_MODELS = ["llava_cot", "base_llama"]      # existing run_eval path (UNCHANGED, 2048 tok)
 LLAMAV_MODELS = ["llamav_o1"]                   # Mllama reasoning fine-tune; own checkpoint/loader, same Llama path (2048 tok)
-QWEN_MODELS = ["qwen2_5_vl", "r1_onevision"]    # new qwen_models path (advisor's code, 4096 tok)
+QWEN_MODELS = ["qwen2_5_vl", "r1_onevision", "r1_onevision_nothink"]  # qwen_models path (advisor's code, 4096 tok)
 ALL_MODELS = LLAMA_MODELS + LLAMAV_MODELS + QWEN_MODELS
 CONDITIONS = ["clean", "zoom_blur", "snow", "glass_blur"]
 QWEN_MAX_NEW_TOKENS = 4096                       # Llama pair uses run_eval's frozen 2048
@@ -100,8 +101,10 @@ def main():
     else:
         from qwen_models import load_qwen, generate_one_qwen
         model, processor = load_qwen(args.model)
+        no_think = args.model.endswith("_nothink")     # r1_onevision_nothink -> suppress reasoning via <think></think> prefill
         def generate(img, prompt):
-            return generate_one_qwen(model, processor, img, prompt, max_new_tokens=QWEN_MAX_NEW_TOKENS)
+            return generate_one_qwen(model, processor, img, prompt,
+                                     max_new_tokens=QWEN_MAX_NEW_TOKENS, no_think=no_think)
 
     n_done = 0
     for i, s in enumerate(samples):
