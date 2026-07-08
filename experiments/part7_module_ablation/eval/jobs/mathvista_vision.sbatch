@@ -3,9 +3,9 @@
 #SBATCH --array=0-3
 #SBATCH --partition=normal
 #SBATCH --gres=gpu:nvidia_h100_pcie:1
-#SBATCH --cpus-per-task=4
+#SBATCH --cpus-per-task=2
 #SBATCH --mem=80G
-#SBATCH --time=04:00:00
+#SBATCH --time=02:30:00
 #SBATCH --output=/home/ch169788/experiments/part7/logs/%x_%A_%a.out
 #SBATCH --error=/home/ch169788/experiments/part7/logs/%x_%A_%a.err
 
