@@ -27,6 +27,32 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 DEFAULT_JUDGE = "NousResearch/Meta-Llama-3-8B-Instruct"   # same judge family as judge_sqa_utility_hf.py
 
+# Llama-3-8B is a CHAT model, so unlike GPT-4 (which the official code uses in completion style) it
+# tends to reply "The extracted answer is: X" instead of completing the demo's "Extracted answer: X".
+# A system instruction forces a bare answer; _clean_extraction strips any preamble that slips through.
+_EXTRACT_SYS = (
+    "You extract the final answer from a model's solution to a visual/math question, following the "
+    "format of the demonstration examples. Reply with ONLY the extracted answer itself — a single "
+    "option letter, a number, or a short phrase — and nothing else. Do NOT add explanations or any "
+    "prefix such as 'Extracted answer:' or 'The answer is'."
+)
+
+
+def _clean_extraction(text):
+    """Strip any conversational preamble and return the bare answer value."""
+    text = (text or "").strip()
+    low = text.lower()
+    for pre in ("the extracted answer is:", "extracted answer:", "the answer is:", "answer:"):
+        i = low.find(pre)
+        if i != -1:
+            text = text[i + len(pre):].strip()
+            low = text.lower()
+    for line in text.splitlines():           # first non-empty line == the value
+        s = line.strip().strip('"').strip("'").strip()
+        if s:
+            return s
+    return text.strip()
+
 
 def load_demo_prompt(mathvista_repo):
     """Import the OFFICIAL few-shot extraction prompt verbatim (a plain string, no deps)."""
@@ -58,15 +84,16 @@ class LlamaExtractor:
 
     @torch.no_grad()
     def get_response(self, user_prompt):
-        msgs = [{"role": "user", "content": user_prompt}]
+        msgs = [{"role": "system", "content": _EXTRACT_SYS},
+                {"role": "user", "content": user_prompt}]
         enc = self.tok.apply_chat_template(msgs, add_generation_prompt=True,
                                            return_tensors="pt", return_dict=True)
         enc = {k: v.to(self.model.device) for k, v in enc.items()}
         n = enc["input_ids"].shape[1]
         out = self.model.generate(**enc, max_new_tokens=64, do_sample=False,
                                   pad_token_id=self.tok.eos_token_id)
-        text = self.tok.decode(out[0, n:], skip_special_tokens=True).strip()
-        return text.splitlines()[0].strip() if text else ""     # short answer = first line
+        text = self.tok.decode(out[0, n:], skip_special_tokens=True)
+        return _clean_extraction(text)
 
 
 def extract_answer(extractor, demo_prompt, response, problem, quick_extract=False):
