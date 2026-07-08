@@ -45,8 +45,11 @@ def score_file(path):
     failed = 0
     by = {"image": [0, 0], "text": [0, 0]}                # [correct, total]
     for it in items:
-        res = PATTERN.findall(it["response"])
-        answer = res[0] if len(res) == 1 else "FAILED"
+        if "pred_letter" in it:                          # hybrid extraction (rule|llm) from extract_sqa.py
+            answer = it["pred_letter"] if it["pred_letter"] else "FAILED"
+        else:
+            res = PATTERN.findall(it["response"])         # paper-exact regex on raw responses
+            answer = res[0] if len(res) == 1 else "FAILED"
         if answer == "FAILED":
             failed += 1
         pred_idx = get_pred_idx(answer, it["choices"], OPTIONS, rng)
@@ -82,12 +85,14 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("files", nargs="*")
     ap.add_argument("--dir")
+    ap.add_argument("--glob", default="raw_*.jsonl",
+                    help="e.g. 'extracted_*.jsonl' to score the hybrid-extracted files")
     args = ap.parse_args()
     paths = list(args.files)
     if args.dir:
-        paths += sorted(glob.glob(os.path.join(args.dir, "raw_*.jsonl")))
+        paths += sorted(glob.glob(os.path.join(args.dir, args.glob)))
     if not paths:
-        sys.exit("No input. Pass raw_*.jsonl or --dir.")
+        sys.exit("No input. Pass files or --dir.")
     print("=== ScienceQA accuracy (paper-exact) ===")
     for p in paths:
         score_file(p)

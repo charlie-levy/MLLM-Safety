@@ -22,10 +22,14 @@ import argparse
 
 
 def load_official(mathvista_repo):
-    evald = os.path.join(os.path.expanduser(mathvista_repo), "evaluation")
+    repo = os.path.expanduser(mathvista_repo)
+    evald = os.path.join(repo, "evaluation")
     if not os.path.isdir(evald):
         raise SystemExit("MathVista repo not found at %s (git clone --depth 1 "
                          "https://github.com/lupantech/MathVista ~/MathVista)" % mathvista_repo)
+    # calculate_score.py does `from utilities import ...`; utilities.py lives at the repo root
+    # (not in evaluation/), so put BOTH the repo root and evaluation/ on sys.path.
+    sys.path.insert(0, repo)
     sys.path.insert(0, evald)
     from calculate_score import normalize_extracted_answer, safe_equal   # noqa
     return normalize_extracted_answer, safe_equal
