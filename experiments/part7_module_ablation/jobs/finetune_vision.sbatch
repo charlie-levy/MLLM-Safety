@@ -14,6 +14,11 @@ source /apps/anaconda/anaconda-2024.10/etc/profile.d/conda.sh
 conda activate llamafactory
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_HUB_DISABLE_XET=1 HF_HUB_ENABLE_HF_TRANSFER=0
 export OMP_NUM_THREADS=8 TOKENIZERS_PARALLELISM=false
+# DeepSpeed probes CUDA_HOME for nvcc at import (crashes on the GPU node without it). Point it at
+# the cuda-13.1 toolkit (matches this env's cu13 torch). We don't compile ops; this just lets import pass.
+export CUDA_HOME=/apps/cuda/cuda-13.1.0
+export PATH=$CUDA_HOME/bin:$PATH
+export LD_LIBRARY_PATH=$CUDA_HOME/lib64:$LD_LIBRARY_PATH
 export HF_DATASETS_CACHE=/home/ch169788/experiments/part7/hfcache/vision   # per-job cache -> no concurrent-build race
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True                    # defrag (belt-and-suspenders; ZeRO-3 does the real work)
 export FORCE_TORCHRUN=1                                                    # single-proc torchrun so DeepSpeed initializes cleanly on 1 GPU
