@@ -24,10 +24,10 @@ import os
 PARTITION = "normal"             # "normal" (billed) | "preemptable" (free)
 
 CONDITIONS = ["clean", "zoom_blur", "snow", "glass_blur"]
-MODELS = ["llava_cot", "base_llama", "r1_onevision", "qwen2_5_vl"]
+MODELS = ["llava_cot", "base_llama", "llamav_o1", "r1_onevision", "qwen2_5_vl"]
 
 # per-model time limit on SIUO-167 (reasoning models generate longer)
-TIME = {"llava_cot": "04:00:00", "base_llama": "03:00:00",
+TIME = {"llava_cot": "04:00:00", "base_llama": "03:00:00", "llamav_o1": "04:00:00",
         "r1_onevision": "04:00:00", "qwen2_5_vl": "03:00:00"}
 
 REPO = "/home/ch169788/llava_cot_eval"
@@ -78,13 +78,25 @@ def main():
             write(os.path.join(JOBS, fn), body)
             names.append(fn)
 
-    submit = ("#!/bin/bash\n# Part 4: submit all %d inference jobs (4 models x 4 conditions on SIUO).\n"
-              "# Responses only, no judge. Independent; no chaining.\nset -e\ncd %s\n" % (len(names), JOBS))
+    submit = ("#!/bin/bash\n# Part 4: submit all %d inference jobs (%d models x 4 conditions on SIUO).\n"
+              "# Responses only, no judge. Independent; no chaining. Resume-safe: already-complete\n"
+              "# cells are skipped per-idx, so re-running does not redo finished models.\nset -e\ncd %s\n"
+              % (len(names), len(MODELS), JOBS))
     for fn in names:
         submit += "sbatch %s\n" % fn
     write(os.path.join(JOBS, "submit_part4.sh"), submit)
 
-    print("wrote %d sbatch + submit_part4.sh to %s" % (len(names), JOBS))
+    # convenience: submit ONLY the newly-added LlamaV-o1 cells (4 conditions) without
+    # touching the 16 already-run llava_cot/base_llama/r1_onevision/qwen2_5_vl jobs.
+    llamav = [fn for fn in names if fn.endswith("_llamav_o1.sh")]
+    if llamav:
+        sub_l = ("#!/bin/bash\n# Part 4: submit ONLY the LlamaV-o1 inference jobs (4 conditions on SIUO).\n"
+                 "set -e\ncd %s\n" % JOBS)
+        for fn in llamav:
+            sub_l += "sbatch %s\n" % fn
+        write(os.path.join(JOBS, "submit_part4_llamav.sh"), sub_l)
+
+    print("wrote %d sbatch + submit_part4.sh (+ submit_part4_llamav.sh) to %s" % (len(names), JOBS))
     print("  partition=%s%s" % (PARTITION, "  (FREE)" if PARTITION == "preemptable" else "  (BILLED)"))
     print("  models=%s" % MODELS)
     print("  conditions=%s" % CONDITIONS)

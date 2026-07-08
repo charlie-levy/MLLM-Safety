@@ -12,7 +12,7 @@ import json
 import argparse
 
 CONDITIONS = ["clean", "zoom_blur", "snow", "glass_blur"]
-MODELS = ["llava_cot", "base_llama", "r1_onevision", "qwen2_5_vl"]
+MODELS = ["llava_cot", "base_llama", "llamav_o1", "r1_onevision", "qwen2_5_vl"]
 
 
 def load(path):
@@ -30,20 +30,21 @@ def main():
     print("=" * 86)
     print("PART 4 responses on SIUO (no judge) — n responses [perception-fail]")
     print("=" * 86)
-    print("%-14s %-17s %-17s %-17s %-17s" % ("condition", *MODELS))
+    print("%-14s %s" % ("condition", "".join("%-15s" % m for m in MODELS)))
     grand = 0
     for c in CONDITIONS:
         cells = []
         for m in MODELS:
             recs = load(os.path.join(R, "siuo_%s_%s_responses.jsonl" % (c, m)))
             if recs is None:
-                cells.append("%-17s" % "MISSING")
+                cells.append("%-15s" % "MISSING")
             else:
                 pf = sum(1 for r in recs if r.get("perception_failure"))
                 grand += len(recs)
-                cells.append("%-17s" % ("%d  [%d]" % (len(recs), pf)))
-        print("%-14s %s %s %s %s" % (c, cells[0], cells[1], cells[2], cells[3]))
-    print("\n%d total responses across all 16 cells. Judge these with your own program." % grand)
+                cells.append("%-15s" % ("%d  [%d]" % (len(recs), pf)))
+        print("%-14s %s" % (c, "".join(cells)))
+    print("\n%d total responses across all %d cells. Judge these with your own program."
+          % (grand, len(MODELS) * len(CONDITIONS)))
 
 
 if __name__ == "__main__":

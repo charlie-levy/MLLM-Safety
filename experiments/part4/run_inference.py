@@ -7,6 +7,7 @@ reasoning-vs-base pairs. Generates responses ONLY — NO judging.
 Models:
     llava_cot     reasoning   (Xkev/Llama-3.2V-11B-cot)                 } Llama pair
     base_llama    base        (meta-llama/Llama-3.2-11B-Vision-Instruct) }
+    llamav_o1     reasoning   (omkarthawakar/LlamaV-o1)                  } Llama family (extra)
     r1_onevision  reasoning   (Fancy-MLLM/R1-Onevision-7B)              } Qwen pair
     qwen2_5_vl    base        (Qwen/Qwen2.5-VL-7B-Instruct)             }
 
@@ -41,8 +42,9 @@ from dataset_loader import load_new_attack                     # noqa: E402
 from corruption_lib import apply_corruption, severity_for, is_perception_failure  # noqa: E402
 
 LLAMA_MODELS = ["llava_cot", "base_llama"]      # existing run_eval path (UNCHANGED, 2048 tok)
+LLAMAV_MODELS = ["llamav_o1"]                   # Mllama reasoning fine-tune; own checkpoint/loader, same Llama path (2048 tok)
 QWEN_MODELS = ["qwen2_5_vl", "r1_onevision"]    # new qwen_models path (advisor's code, 4096 tok)
-ALL_MODELS = LLAMA_MODELS + QWEN_MODELS
+ALL_MODELS = LLAMA_MODELS + LLAMAV_MODELS + QWEN_MODELS
 CONDITIONS = ["clean", "zoom_blur", "snow", "glass_blur"]
 QWEN_MAX_NEW_TOKENS = 4096                       # Llama pair uses run_eval's frozen 2048
 
@@ -78,7 +80,7 @@ def main():
     if debug:
         samples = samples[:args.debug_n]
 
-    fam = "Llama/run_eval(2048)" if args.model in LLAMA_MODELS else "Qwen/advisor(4096)"
+    fam = "Qwen/advisor(4096)" if args.model in QWEN_MODELS else "Llama/run_eval(2048)"
     print("=" * 80, flush=True)
     print("  Part4 INFER | dataset=siuo condition=%s(sev%d) model=%s [%s] | %d samples%s  [NO JUDGE]"
           % (args.condition, sev, args.model, fam, len(samples),
@@ -90,6 +92,11 @@ def main():
         model, processor = RE.load(args.model)                          # existing, UNCHANGED
         def generate(img, prompt):
             return RE.generate_one(model, processor, img, prompt)
+    elif args.model in LLAMAV_MODELS:
+        from llamav_models import load_llamav_o1
+        model, processor = load_llamav_o1()                             # Mllama; loaded here, generated on the Llama path
+        def generate(img, prompt):
+            return RE.generate_one(model, processor, img, prompt)       # greedy, 2048 tok — same as the Llama pair
     else:
         from qwen_models import load_qwen, generate_one_qwen
         model, processor = load_qwen(args.model)
