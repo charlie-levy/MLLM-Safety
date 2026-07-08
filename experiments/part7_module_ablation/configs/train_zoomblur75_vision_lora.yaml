@@ -1,13 +1,17 @@
 ### Module-ablation LoRA SFT #2 — VISION-ENCODER-ONLY.
 ### TIS + 75% zoom_blur(sev2) images. LoRA on the VISION TOWER only (LM frozen).
-### APPLES-TO-APPLES with train_zoomblur75_llm_lora.yaml — the ONLY differences are
-### `output_dir` and the freeze flags. LM (incl. cross-attn) is FROZEN; only the ViT adapts.
+### APPLES-TO-APPLES with the llm & both cells — EVERY hyperparameter is identical
+### (lora_target:all, cutoff_len:4096, uncapped images, rank/lr/schedule/epochs, global batch 8).
+### The ONLY differences are `output_dir` and the freeze flags. LM (incl. cross-attn) is FROZEN;
+### only the ViT adapts. `enable_liger_kernel` is the sole add-on: a kernel-level optimization
+### (fused linear-CE, same loss/grads to fp tolerance) that fits the frozen-LM path in 80G — it
+### changes no hyperparameter, so apples-to-apples holds.
 
 ### model
 model_name_or_path: Xkev/Llama-3.2V-11B-cot
 trust_remote_code: true
 enable_liger_kernel: true            # fused linear-CE: never materializes the [1,seq,vocab] logits
-                                     # tensor -> fixes the vision-only lm_head OOM. Same loss/grads.
+                                     # tensor (~2-3GB) -> fits vision-only in 80G. Same loss/grads.
 
 ### method
 stage: sft
