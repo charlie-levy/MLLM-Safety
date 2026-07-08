@@ -3,9 +3,10 @@
 ### APPLES-TO-APPLES with the llm & both cells — EVERY hyperparameter is identical
 ### (lora_target:all, cutoff_len:4096, uncapped images, rank/lr/schedule/epochs, global batch 8).
 ### The ONLY differences are `output_dir` and the freeze flags. LM (incl. cross-attn) is FROZEN;
-### only the ViT adapts. `enable_liger_kernel` is the sole add-on: a kernel-level optimization
-### (fused linear-CE, same loss/grads to fp tolerance) that fits the frozen-LM path in 80G — it
-### changes no hyperparameter, so apples-to-apples holds.
+### only the ViT adapts. Two INFRA add-ons fit the frozen-LM path on one 80G card WITHOUT
+### changing any hyperparameter (so apples-to-apples holds): `enable_liger_kernel` (fused
+### linear-CE) and `deepspeed` ZeRO-3 param-offload (the 21G frozen base lives in CPU RAM and
+### is gathered layer-by-layer). Same AdamW, same global batch 8, same loss/grads to fp tolerance.
 
 ### model
 model_name_or_path: Xkev/Llama-3.2V-11B-cot
@@ -53,3 +54,7 @@ lr_scheduler_type: cosine
 warmup_ratio: 0.1
 bf16: true
 ddp_timeout: 180000000
+
+### infra (not a hyperparameter): ZeRO-3 offloads the frozen 21G base to CPU RAM so the
+### frozen-LM backward fits on one 80G H100. Absolute path -> resolves regardless of cwd.
+deepspeed: /home/ch169788/llava_cot_eval/experiments/part7_module_ablation/configs/ds_z3_offload.json

@@ -5,8 +5,8 @@
 #SBATCH --partition=normal
 #SBATCH --gres=gpu:nvidia_h100_pcie:1
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=96G
-#SBATCH --time=08:00:00
+#SBATCH --mem=160G
+#SBATCH --time=10:00:00
 #SBATCH --output=/home/ch169788/experiments/part7/logs/%x_%j.out
 #SBATCH --error=/home/ch169788/experiments/part7/logs/%x_%j.err
 
@@ -15,7 +15,13 @@ conda activate llamafactory
 export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_HUB_DISABLE_XET=1 HF_HUB_ENABLE_HF_TRANSFER=0
 export OMP_NUM_THREADS=8 TOKENIZERS_PARALLELISM=false
 export HF_DATASETS_CACHE=/home/ch169788/experiments/part7/hfcache/vision   # per-job cache -> no concurrent-build race
-export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True,max_split_size_mb:128   # defrag: vision-only (frozen LM) peaks right at 80G
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True                    # defrag (belt-and-suspenders; ZeRO-3 does the real work)
+export FORCE_TORCHRUN=1                                                    # single-proc torchrun so DeepSpeed initializes cleanly on 1 GPU
+
+# DeepSpeed is what makes the frozen-LM run fit (offloads the 21G base to CPU). Guard: it's
+# almost certainly already in the llamafactory env; install only if truly missing.
+python -c "import deepspeed; print('deepspeed', deepspeed.__version__)" \
+  || { echo 'deepspeed missing -> installing'; pip install --no-input deepspeed; }
 
 cd ~/LLaMA-Factory
 llamafactory-cli train ~/llava_cot_eval/experiments/part7_module_ablation/configs/train_zoomblur75_vision_lora.yaml
