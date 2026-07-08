@@ -36,13 +36,18 @@ OPTIONS = ["A", "B", "C", "D", "E"]
 
 
 def build_prompt(rec):
+    letters = OPTIONS[:len(rec["choices"])]
     lines = ["Question: " + rec["question"]]
     if (rec.get("hint") or "").strip():
         lines.append("Context: " + rec["hint"].strip())
-    opts = " ".join("(%s) %s" % (OPTIONS[i], c) for i, c in enumerate(rec["choices"]))
+    opts = " ".join("(%s) %s" % (letters[i], c) for i, c in enumerate(rec["choices"]))
     lines.append("Options: " + opts)
-    lines.append("Reason step by step, then end your reply with exactly "
-                 "\"The answer is X.\" where X is the correct option letter.")
+    lines.append("")
+    lines.append("Think step by step to solve the question. Then, on the LAST line of your reply, "
+                 "you MUST write your final choice in EXACTLY this format, with nothing else on that line:")
+    lines.append("The answer is X.")
+    lines.append("Here X is one of the option letters (" + ", ".join(letters) +
+                 "). Always include this final line, even if you are unsure.")
     return "\n".join(lines)
 
 
