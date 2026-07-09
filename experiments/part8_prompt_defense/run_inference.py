@@ -2,23 +2,25 @@
 """
 run_inference.py — Part 8 (Experiment 8) INFERENCE driver: PROMPT-BASED DEFENSE
 on SIUO. Same models / corruptions / frozen greedy decode as Part 4, but with a
-safety SYSTEM PROMPT prepended. Generates responses ONLY — NO judging (the SIUO
-HR_R / HR_C judge is run externally, exactly like Parts 4–7).
+safety instruction PREPENDED TO THE USER PROMPT. Generates responses ONLY — NO
+judging (the SIUO HR_R / HR_C judge is run externally, exactly like Parts 4–7).
 
-Idea: can a training-free system prompt recover the safety that image corruption
-breaks? Prompt variants (see prompts.py):
-    none       no system prompt          (== Part 4 baseline; reuse those files)
+Idea: can a training-free safety instruction recover the safety that image
+corruption breaks? Variants (see prompts.py):
+    none       no instruction            (== Part 4 baseline; reuse those files)
     safety     generic safety, no blur mention
     blur_safe  safety + "the image may be blurry, stay cautious"   <- the idea
     perceive   safety + "if you can't see it clearly, don't guess"
 
-REUSES the frozen Part-4 inference paths UNCHANGED:
+NOTE: the instruction is folded into the USER turn, NOT a system message —
+Llama-3.2-Vision forbids system messages when an image is present. This routes
+through the EXACT frozen Part-4 generate paths, UNCHANGED:
     * Llama family (llava_cot, base_llama) -> code/run_eval.py         (2048 tok)
     * llamav_o1  (Mllama fine-tune)        -> part4/llamav_models.py    (2048 tok)
     * Qwen family (qwen2_5_vl, r1_onevision[_nothink]) -> part4/qwen_models.py (4096 tok)
-The ONLY change vs Part 4 is the prepended system message; decoding is unchanged
-(do_sample=False, same max_new_tokens). For --prompt none the ORIGINAL Part-4
-generate functions are called verbatim, so that cell reproduces Part 4 exactly.
+The ONLY change vs Part 4 is the safety text prepended to the prompt; decoding is
+unchanged (do_sample=False, same max_new_tokens). For --prompt none the prompt is
+untouched, so that cell reproduces Part 4 exactly.
 
 Output:  siuo_<condition>_<model>_<prompt>_responses.jsonl   (JSONL, per-idx resume)
 
@@ -29,8 +31,6 @@ import os
 import sys
 import json
 import argparse
-
-import torch
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))                    # .../llava_cot_eval
@@ -53,52 +53,16 @@ CONDITIONS = ["clean", "zoom_blur", "snow", "glass_blur"]
 QWEN_MAX_NEW_TOKENS = 4096
 
 
-# ── system-prompt-aware generation: mirrors the Part-4 frozen decode EXACTLY,
-#    only prepending a system message. Used when --prompt != none. ────────────
-@torch.inference_mode()
-def _llama_generate_sys(model, processor, image, prompt, system, verbose=False):
-    has_image = image is not None
-    content = []
-    if has_image:
-        content.append({"type": "image"})
-    content.append({"type": "text", "text": prompt})
-    messages = [{"role": "system", "content": [{"type": "text", "text": system}]},
-                {"role": "user", "content": content}]
-    text = processor.apply_chat_template(messages, add_generation_prompt=True)
-    if verbose:
-        print("\n---- RENDERED CHAT INPUT (the system prompt MUST appear below) ----\n%s"
-              "\n---- END RENDERED INPUT ----" % text, flush=True)
-    images = [[image]] if has_image else None
-    inputs = processor(images=images, text=[text], padding=True,
-                       return_tensors="pt").to(model.device)
-    plen = inputs["input_ids"].shape[-1]
-    out = model.generate(**inputs, max_new_tokens=RE.MAX_NEW_TOKENS, do_sample=False,
-                         pad_token_id=processor.tokenizer.eos_token_id)
-    return processor.decode(out[0][plen:], skip_special_tokens=True)
-
-
-@torch.inference_mode()
-def _qwen_generate_sys(model, processor, image, prompt, system, max_new_tokens, no_think, verbose=False):
-    from qwen_vl_utils import process_vision_info
-    content = []
-    if image is not None:
-        content.append({"type": "image", "image": image})
-    content.append({"type": "text", "text": prompt})
-    messages = [{"role": "system", "content": [{"type": "text", "text": system}]},
-                {"role": "user", "content": content}]
-    text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-    if no_think:
-        text = text + "<think>\n\n</think>\n\n"
-    if verbose:
-        print("\n---- RENDERED CHAT INPUT (the system prompt MUST appear below) ----\n%s"
-              "\n---- END RENDERED INPUT ----" % text, flush=True)
-    image_inputs, video_inputs = process_vision_info(messages)
-    inputs = processor(text=[text], images=image_inputs, videos=video_inputs,
-                       padding=True, return_tensors="pt").to(model.device)
-    generated = model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False)
-    trimmed = [out[len(inp):] for inp, out in zip(inputs.input_ids, generated)]
-    return processor.batch_decode(trimmed, skip_special_tokens=True,
-                                  clean_up_tokenization_spaces=False)[0].strip()
+# The safety instruction is delivered by PREPENDING it to the user prompt text —
+# NOT as a system message. Llama-3.2-Vision's chat template raises
+# "Prompting with images is incompatible with system messages" whenever an image
+# is present, and every SIUO item has an image. Folding the instruction into the
+# user turn is uniform across all models AND routes through the EXACT frozen
+# Part-4 generate_one / generate_one_qwen, so no new chat-template path exists to
+# break. Semantically identical: the model still sees the safety instruction
+# before the question.
+def fold_prompt(system, prompt):
+    return prompt if system is None else "%s\n\n%s" % (system, prompt)
 
 
 def main():
@@ -146,30 +110,25 @@ def main():
     print("  system_prompt = %s" % ("<none> (== Part 4)" if system is None else repr(system)), flush=True)
     print("=" * 80, flush=True)
 
-    # Load via the correct frozen path; expose a uniform generate(img, prompt).
+    # Load via the correct frozen path; generation is the UNCHANGED Part-4 path.
+    # (The safety instruction is folded into the prompt text by fold_prompt below,
+    # so generate() itself is byte-for-byte the Part-4 call.)
     if args.model in LLAMA_MODELS:
         model, processor = RE.load(args.model)
-        def generate(img, prompt, verbose=False):
-            if system is None:
-                return RE.generate_one(model, processor, img, prompt)
-            return _llama_generate_sys(model, processor, img, prompt, system, verbose=verbose)
+        def generate(img, prompt):
+            return RE.generate_one(model, processor, img, prompt)
     elif args.model in LLAMAV_MODELS:
         from llamav_models import load_llamav_o1
         model, processor = load_llamav_o1()
-        def generate(img, prompt, verbose=False):
-            if system is None:
-                return RE.generate_one(model, processor, img, prompt)
-            return _llama_generate_sys(model, processor, img, prompt, system, verbose=verbose)
+        def generate(img, prompt):
+            return RE.generate_one(model, processor, img, prompt)
     else:
         from qwen_models import load_qwen, generate_one_qwen
         model, processor = load_qwen(args.model)
         no_think = args.model.endswith("_nothink")
-        def generate(img, prompt, verbose=False):
-            if system is None:
-                return generate_one_qwen(model, processor, img, prompt,
-                                         max_new_tokens=QWEN_MAX_NEW_TOKENS, no_think=no_think)
-            return _qwen_generate_sys(model, processor, img, prompt, system,
-                                      max_new_tokens=QWEN_MAX_NEW_TOKENS, no_think=no_think, verbose=verbose)
+        def generate(img, prompt):
+            return generate_one_qwen(model, processor, img, prompt,
+                                     max_new_tokens=QWEN_MAX_NEW_TOKENS, no_think=no_think)
 
     n_done = 0
     for i, s in enumerate(samples):
@@ -182,7 +141,11 @@ def main():
         if (not is_clean) and image is not None:
             image = apply_corruption(image, args.condition, severity=sev)
 
-        resp = generate(image, prompt, verbose=(debug and n_done == 0))
+        user_prompt = fold_prompt(system, prompt)   # safety instruction prepended (unchanged if none)
+        if debug and n_done == 0:
+            print("\n---- USER PROMPT SENT TO MODEL (safety instruction folded in) ----\n%s"
+                  "\n---- END ----" % user_prompt, flush=True)
+        resp = generate(image, user_prompt)
 
         rec = {
             "idx": idx,
