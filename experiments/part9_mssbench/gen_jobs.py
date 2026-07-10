@@ -17,7 +17,7 @@ PARTITION = "normal"             # "normal" (billed, reliable) | "preemptable" (
 MODELS = ["llava_cot", "base_llama", "llamav_o1", "qwen2_5_vl", "r1_onevision", "r1_onevision_nothink"]
 
 # 96-item subset is small; reasoning models generate longer, so keep headroom.
-TIME = {"llava_cot": "02:00:00", "base_llama": "01:30:00", "llamav_o1": "02:00:00",
+TIME = {"llava_cot": "02:00:00", "base_llama": "01:30:00", "llamav_o1": "04:00:00",  # 4-turn staged = slower
         "r1_onevision": "02:00:00", "r1_onevision_nothink": "01:30:00", "qwen2_5_vl": "01:30:00"}
 
 REPO = "/home/ch169788/llava_cot_eval"

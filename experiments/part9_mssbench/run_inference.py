@@ -83,10 +83,11 @@ def main():
         def generate(img, prompt):
             return RE.generate_one(model, processor, img, prompt)
     elif args.model in LLAMAV_MODELS:
-        from llamav_models import load_llamav_o1
+        from llamav_models import load_llamav_o1, generate_llamav_staged
         model, processor = load_llamav_o1()
         def generate(img, prompt):
-            return RE.generate_one(model, processor, img, prompt)
+            # OFFICIAL 4-turn staged pipeline (single-turn only yields a planning preamble).
+            return generate_llamav_staged(model, processor, img, prompt)
     else:
         from qwen_models import load_qwen, generate_one_qwen
         model, processor = load_qwen(args.model)

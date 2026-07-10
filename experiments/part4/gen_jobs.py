@@ -27,7 +27,7 @@ CONDITIONS = ["clean", "zoom_blur", "snow", "glass_blur"]
 MODELS = ["llava_cot", "base_llama", "llamav_o1", "r1_onevision", "r1_onevision_nothink", "qwen2_5_vl"]
 
 # per-model time limit on SIUO-167 (reasoning models generate longer; nothink is faster but keep headroom)
-TIME = {"llava_cot": "04:00:00", "base_llama": "03:00:00", "llamav_o1": "04:00:00",
+TIME = {"llava_cot": "04:00:00", "base_llama": "03:00:00", "llamav_o1": "08:00:00",  # 4-turn staged = slower
         "r1_onevision": "04:00:00", "r1_onevision_nothink": "03:00:00", "qwen2_5_vl": "03:00:00"}
 
 REPO = "/home/ch169788/llava_cot_eval"

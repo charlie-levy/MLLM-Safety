@@ -94,10 +94,11 @@ def main():
         def generate(img, prompt):
             return RE.generate_one(model, processor, img, prompt)
     elif args.model in LLAMAV_MODELS:
-        from llamav_models import load_llamav_o1
-        model, processor = load_llamav_o1()                             # Mllama; loaded here, generated on the Llama path
+        from llamav_models import load_llamav_o1, generate_llamav_staged
+        model, processor = load_llamav_o1()                             # Mllama
         def generate(img, prompt):
-            return RE.generate_one(model, processor, img, prompt)       # greedy, 2048 tok — same as the Llama pair
+            # OFFICIAL 4-turn staged pipeline (single-turn only yields a planning preamble).
+            return generate_llamav_staged(model, processor, img, prompt)
     else:
         from qwen_models import load_qwen, generate_one_qwen
         model, processor = load_qwen(args.model)
