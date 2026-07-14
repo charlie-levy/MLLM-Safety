@@ -2,6 +2,7 @@
 #SBATCH --job-name=p10_vls_bench
 #SBATCH --partition=normal
 #SBATCH --gres=gpu:nvidia_h100_pcie:1
+#SBATCH --exclude=evc26
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=80G
 #SBATCH --time=12:00:00
