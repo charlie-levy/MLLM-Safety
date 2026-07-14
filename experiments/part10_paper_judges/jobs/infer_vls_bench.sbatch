@@ -6,7 +6,7 @@
 #SBATCH --mem=80G
 #SBATCH --time=12:00:00
 #SBATCH --requeue
-#SBATCH --exclude=evc16,evc43
+#SBATCH --exclude=evc16,evc43,evc26
 #SBATCH --output=/home/ch169788/experiments/part10/logs/%x_%j.out
 #SBATCH --error=/home/ch169788/experiments/part10/logs/%x_%j.err
 
