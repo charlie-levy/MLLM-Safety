@@ -10,13 +10,24 @@
 #SBATCH --output=/home/ch169788/experiments/part10/logs/%x_%j.out
 #SBATCH --error=/home/ch169788/experiments/part10/logs/%x_%j.err
 
-# --- self-heal: if we land on a node with no visible GPU, exclude it and requeue ---
-if ! nvidia-smi -L 2>/dev/null | grep -q GPU; then
-  echo "[requeue] no GPU visible on $(hostname) — excluding + requeueing"
-  cur=$(scontrol show job "$SLURM_JOB_ID" | grep -oP 'ExcNodeList=\K\S+'); [ "$cur" = "(null)" ] && cur=""
-  scontrol update JobId="$SLURM_JOB_ID" ExcNodeList="${cur:+$cur,}$(hostname)"
+# --- self-heal: tolerate transient GPU-init delay (retry ~30s), and if the GPU is truly
+#     absent, PERSIST the exclusion across requeues via a badnodes file. (scontrol resets
+#     ExcNodeList to the batch --exclude on every requeue, so a file is required to
+#     accumulate dead nodes; we re-apply the full list before each requeue.) ---
+BADF=/home/ch169788/experiments/part10/.badnodes
+gpu_ok=0
+for _i in 1 2 3 4 5 6; do
+  if nvidia-smi -L 2>/dev/null | grep -q 'GPU'; then gpu_ok=1; break; fi
+  sleep 5
+done
+if [ "$gpu_ok" -eq 0 ]; then
+  echo "[requeue] no GPU on $(hostname) after ~30s — excluding + requeueing"
+  echo "$(hostname)" >> "$BADF"
+  BAD=$(sort -u "$BADF" | paste -sd, -)
+  scontrol update JobId="$SLURM_JOB_ID" ExcNodeList="evc16,evc43,$BAD"
   scontrol requeue "$SLURM_JOB_ID"; sleep 10; exit 1
 fi
+echo "[ok] GPU present on $(hostname): $(nvidia-smi -L | head -1)"
 
 source /apps/anaconda/anaconda-2024.10/etc/profile.d/conda.sh
 conda activate REU
