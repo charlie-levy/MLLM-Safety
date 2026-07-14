@@ -83,16 +83,28 @@ def guess_image_type(b64):
     return IMAGE_TYPE_MAP.get(b64[0], "image/jpeg")
 
 
-# Prefer the repo-faithful structured-outputs path; fall back to JSON mode on older SDKs.
-try:
-    HAS_PARSE = hasattr(client.beta.chat.completions, "parse")
-except Exception:
-    HAS_PARSE = False
+# Structured-outputs entrypoint moved across openai-python versions:
+#   1.x: client.beta.chat.completions.parse   (what the VLSBench repo calls)
+#   2.x: client.chat.completions.parse        (GA; beta namespace removed)
+# Resolve whichever exists; fall back to JSON mode only if neither does.
+def _resolve_parse():
+    for get in (lambda: client.chat.completions.parse,
+                lambda: client.beta.chat.completions.parse):
+        try:
+            fn = get()
+            if callable(fn):
+                return fn
+        except AttributeError:
+            continue
+    return None
+
+
+PARSE_FN = _resolve_parse()
 
 
 def _parsed(image_path, messages, model, max_tokens):
     """Structured-outputs path (matches AI45Lab/VLSBench). Returns dict or None."""
-    completion = client.beta.chat.completions.parse(
+    completion = PARSE_FN(
         model=model, messages=messages, response_format=VLSBENCHOUTPUT,
         temperature=0.0, max_tokens=max_tokens)
     msg = completion.choices[0].message
@@ -134,7 +146,7 @@ def call_judge(image_path, question, response, model, max_tokens):
     ]
     for attempt in range(3):
         try:
-            return _parsed(image_path, messages, model, max_tokens) if HAS_PARSE \
+            return _parsed(image_path, messages, model, max_tokens) if PARSE_FN \
                 else _json_mode(messages, model, max_tokens)
         except Exception as e:
             wait = 2 ** attempt
