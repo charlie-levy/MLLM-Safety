@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=p10_vls_bench
-#SBATCH --partition=preemptable
+#SBATCH --partition=normal
 #SBATCH --gres=gpu:nvidia_h100_pcie:1
 #SBATCH --cpus-per-task=2
 #SBATCH --mem=80G
