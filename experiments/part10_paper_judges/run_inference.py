@@ -44,7 +44,9 @@ from PIL import Image                                          # noqa: E402
 
 MODEL = "llava_cot"                       # BASE LLaVA-CoT, no TIS
 DATA_ROOT = "/home/ch169788/experiments/part2/data"           # reuse Part-2 manifests
-DATASETS = ["mmsafety_tiny", "spa_vl", "vls_bench"]
+# holisafe_ssu (SI+ST->U) / holisafe_sss (over-refusal control) are judged by is_refusal
+# (HoliSafe SM metric), NOT the GPT-4o judges — same responses-only inference path.
+DATASETS = ["mmsafety_tiny", "spa_vl", "vls_bench", "holisafe_ssu", "holisafe_sss"]
 ZOOM_SEVERITY = 2                         # the settled zoom_blur severity for this study
 
 
