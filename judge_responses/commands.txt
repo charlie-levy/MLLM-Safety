@@ -1,0 +1,13 @@
+Verify it's working (after ~5 min — same lesson as before: give the model load time)
+
+tail -20 ~/experiments/holisafe_ssu/logs/hs_llava_cot_*.out
+wc -l ~/experiments/holisafe_ssu/results/holisafe_ssu_*_llava_cot_responses.jsonl 2>/dev/null
+
+Once it's generating, launch the other four
+
+cd ~/llava_cot_eval/experiments/holisafe_ssu
+sbatch --job-name=hs_base_llama   jobs/infer.sbatch base_llama
+sbatch --job-name=hs_llamav_o1    jobs/infer.sbatch llamav_o1
+sbatch --job-name=hs_qwen2_5_vl   jobs/infer.sbatch qwen2_5_vl
+sbatch --job-name=hs_r1_onevision jobs/infer.sbatch r1_onevision
+squeue --me

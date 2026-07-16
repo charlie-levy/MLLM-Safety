@@ -1,0 +1,12 @@
+{
+  "tag": "extracted_vision",
+  "metric": "ScienceQA test accuracy (paper-exact extraction)",
+  "accuracy": 91.89,
+  "correct": 3897,
+  "total": 4241,
+  "extraction_failed": 0,
+  "acc_image": 89.84,
+  "acc_text_only": 93.75,
+  "n_image": 2017,
+  "n_text_only": 2224
+}

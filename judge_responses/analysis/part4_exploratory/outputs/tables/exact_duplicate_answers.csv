@@ -1,0 +1,17 @@
+model,condition,n,unique_answers,duplicate_rate,max_identical
+base_llama,clean,167,154,0.0778,6
+base_llama,glass_blur,167,161,0.0359,7
+base_llama,snow,167,157,0.0599,8
+base_llama,zoom_blur,167,166,0.006,2
+llava_cot,clean,167,167,0.0,1
+llava_cot,glass_blur,167,166,0.006,2
+llava_cot,snow,167,165,0.012,2
+llava_cot,zoom_blur,167,167,0.0,1
+qwen2_5_vl,clean,167,167,0.0,1
+qwen2_5_vl,glass_blur,167,167,0.0,1
+qwen2_5_vl,snow,167,167,0.0,1
+qwen2_5_vl,zoom_blur,167,167,0.0,1
+r1_onevision,clean,167,165,0.012,3
+r1_onevision,glass_blur,167,163,0.024,5
+r1_onevision,snow,167,166,0.006,2
+r1_onevision,zoom_blur,167,167,0.0,1

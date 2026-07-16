@@ -1,0 +1,12 @@
+{
+  "tag": "extracted_llm",
+  "metric": "ScienceQA test accuracy (paper-exact extraction)",
+  "accuracy": 93.47,
+  "correct": 3964,
+  "total": 4241,
+  "extraction_failed": 5,
+  "acc_image": 93.6,
+  "acc_text_only": 93.35,
+  "n_image": 2017,
+  "n_text_only": 2224
+}

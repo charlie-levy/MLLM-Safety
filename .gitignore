@@ -1,6 +1,6 @@
-# Results
-results/
-logs/
+# Results (repo-root only — judge_responses/results IS tracked)
+/results/
+/logs/
 
 # Python
 __pycache__/
@@ -19,3 +19,9 @@ model_weights/
 
 # Local-only agent notes
 CLAUDE.md
+
+# Images
+Unsafe_Images_BeaverTails-V/
+
+# judge_responses local agent state
+judge_responses/.claude/

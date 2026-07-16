@@ -1,0 +1,3 @@
+python eval_hr_table1_siuo_jsonl_R_C.py 
+--entry "zoom_blur-tis_lora" 
+jsons_july_09/siuo_zoom_blur_tis_lora_responses.jsonl

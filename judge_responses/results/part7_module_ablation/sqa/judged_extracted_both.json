@@ -1,0 +1,12 @@
+{
+  "tag": "extracted_both",
+  "metric": "ScienceQA test accuracy (paper-exact extraction)",
+  "accuracy": 93.73,
+  "correct": 3975,
+  "total": 4241,
+  "extraction_failed": 5,
+  "acc_image": 94.1,
+  "acc_text_only": 93.39,
+  "n_image": 2017,
+  "n_text_only": 2224
+}
