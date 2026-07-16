@@ -45,7 +45,7 @@ sys.path.insert(0, os.path.join(REPO, "experiments", "common"))
 
 import run_eval as RE  # noqa: E402,F401  (chdir's to REPO root; needed by dataset_loader paths)
 from dataset_loader import load_new_attack                # noqa: E402
-from corruption_lib import is_perception_failure          # noqa: E402
+from corruption_lib import apply_corruption, is_perception_failure  # noqa: E402
 from qwen_models import load_qwen, generate_one_qwen      # noqa: E402
 from budget_forcing import generate_forced                # noqa: E402
 
@@ -54,10 +54,14 @@ NATURAL_MAX_NEW_TOKENS = 4096      # part4's Qwen-path cap
 ANSWER_TOKENS = 2048               # answer phase after a forced budget
 
 
-def gen_for_budget(model, processor, samples, budget, out_dir, debug):
-    """budget: 'natural' | int (0 = nothink)."""
+def gen_for_budget(model, processor, samples, budget, out_dir, debug,
+                   condition="clean", severity=0):
+    """budget: 'natural' | int (0 = nothink). condition: 'clean' or a corruption
+    name from corruption_lib (e.g. 'zoom_blur'); severity is applied only when
+    condition != 'clean' (identical apply_corruption call as Parts 4/5/10)."""
     tag = str(budget)
-    out_path = os.path.join(out_dir, "siuo_clean_r1onevision_budget%s_responses.jsonl" % tag)
+    out_path = os.path.join(
+        out_dir, "siuo_%s_r1onevision_budget%s_responses.jsonl" % (condition, tag))
 
     written = set()
     if not debug and os.path.exists(out_path):
@@ -80,6 +84,8 @@ def gen_for_budget(model, processor, samples, budget, out_dir, debug):
         if idx in written:
             continue
         prompt, image = s["prompt"], s["image"]
+        if condition != "clean":
+            image = apply_corruption(image, condition, severity=severity)
 
         if budget == "natural":
             resp = generate_one_qwen(model, processor, image, prompt,
@@ -97,8 +103,8 @@ def gen_for_budget(model, processor, samples, budget, out_dir, debug):
             "idx": idx,
             "model": MODEL_KEY,
             "dataset": "siuo",
-            "condition": "clean",
-            "severity": 0,
+            "condition": condition,
+            "severity": severity if condition != "clean" else 0,
             "budget": tag,
             "think_tokens_actual": think_tok,
             "n_wait_insertions": waits,
@@ -132,6 +138,10 @@ def main():
                     help="comma list of exact budgets; ints, plus 'natural'")
     ap.add_argument("--n_samples", type=int, default=50,
                     help="first N SIUO samples (deterministic order)")
+    ap.add_argument("--condition", default="clean",
+                    help="'clean' or a corruption name (e.g. zoom_blur) applied to every image")
+    ap.add_argument("--severity", type=int, default=2,
+                    help="corruption severity 1-5 (imagecorruptions); used only when --condition != clean")
     ap.add_argument("--output_dir", default="/home/ch169788/experiments/part11/results")
     ap.add_argument("--debug_n", type=int, default=0,
                     help=">0: run only N samples per budget and PRINT (nothing written)")
@@ -151,14 +161,17 @@ def main():
     if not debug:
         os.makedirs(args.output_dir, exist_ok=True)
 
+    cond_str = args.condition if args.condition == "clean" \
+        else "%s(sev%d)" % (args.condition, args.severity)
     print("=" * 78, flush=True)
-    print("  Part11 PILOT | SIUO clean | model=%s | budgets=%s | %d samples%s  [NO JUDGE]"
-          % (MODEL_KEY, budgets, len(samples), "  [DEBUG]" if debug else ""), flush=True)
+    print("  Part11 PILOT | SIUO %s | model=%s | budgets=%s | %d samples%s  [NO JUDGE]"
+          % (cond_str, MODEL_KEY, budgets, len(samples), "  [DEBUG]" if debug else ""), flush=True)
     print("=" * 78, flush=True)
 
     model, processor = load_qwen(MODEL_KEY)      # load ONCE for every budget
     for b in budgets:
-        gen_for_budget(model, processor, samples, b, args.output_dir, debug)
+        gen_for_budget(model, processor, samples, b, args.output_dir, debug,
+                       condition=args.condition, severity=args.severity)
 
     if debug:
         print("\n[DEBUG] responses printed above — check think-token counts hit the budget,"
