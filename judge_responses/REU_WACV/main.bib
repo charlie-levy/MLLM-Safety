@@ -105,28 +105,25 @@
   year    = {2025}
 }
 
-@article{siuo2024,
-  author  = {Siyin Wang and others},
-  title   = {Cross-Modality Safety Alignment},
-  journal = {arXiv preprint arXiv:2406.15279},
-  note    = {SIUO benchmark. VERIFY: published venue (NAACL 2025 Findings?)},
-  year    = {2024}
+@inproceedings{siuo2024,
+  author    = {Siyin Wang and Xingsong Ye and Qinyuan Cheng and Junwen Duan and Shimin Li and Jinlan Fu and Xipeng Qiu and Xuanjing Huang},
+  title     = {Safe Inputs but Unsafe Output: Benchmarking Cross-modality Safety Alignment of Large Vision-Language Model},
+  booktitle = {Findings of NAACL},
+  year      = {2025}
 }
 
 @article{holisafe2025,
-  author  = {Youngwan Lee and others},
-  title   = {HoliSafe: Holistic Safety Benchmarking and Modeling with Safety Meta Token for Vision-Language Model},
+  author  = {Youngwan Lee and Kangsan Kim and Kwanyong Park and Ilcahe Jung and Soojin Jang and Seanie Lee and Yong-Ju Lee and Sung Ju Hwang},
+  title   = {HoliSafe: Holistic Safety Benchmarking and Modeling for Vision-Language Model},
   journal = {arXiv preprint arXiv:2506.04704},
-  note    = {VERIFY authors + id},
   year    = {2025}
 }
 
-@article{hu2024vlsbench,
-  author  = {Xuhao Hu and Dongrui Liu and Hao Li and Xuanjing Huang and Jing Shao},
-  title   = {VLSBench: Unveiling Visual Leakage in Multimodal Safety},
-  journal = {arXiv preprint arXiv:2411.19939},
-  note    = {VERIFY: ACL 2025?},
-  year    = {2024}
+@inproceedings{hu2024vlsbench,
+  author    = {Xuhao Hu and Dongrui Liu and Hao Li and Xuanjing Huang and Jing Shao},
+  title     = {VLSBench: Unveiling Visual Leakage in Multimodal Safety},
+  booktitle = {ACL},
+  year      = {2025}
 }
 
 @inproceedings{liu2024mmsafetybench,
@@ -143,18 +140,17 @@
   year      = {2025}
 }
 
-@article{zhang2024spavl,
-  author  = {Yongting Zhang and others},
-  title   = {SPA-VL: A Comprehensive Safety Preference Alignment Dataset for Vision Language Models},
-  journal = {arXiv preprint arXiv:2406.12030},
-  year    = {2024}
+@inproceedings{zhang2024spavl,
+  author    = {Yongting Zhang and others},
+  title     = {SPA-VL: A Comprehensive Safety Preference Alignment Dataset for Vision Language Models},
+  booktitle = CVPR,
+  year      = {2025}
 }
 
 @article{zhou2024mssbench,
   author  = {Kaiwen Zhou and Chengzhi Liu and Xuandong Zhao and Anderson Compalas and Dawn Song and Xin Eric Wang},
   title   = {Multimodal Situational Safety},
   journal = {arXiv preprint arXiv:2410.06172},
-  note    = {VERIFY: ICLR 2025?},
   year    = {2024}
 }
 
@@ -207,9 +203,69 @@
   year      = {2022}
 }
 
-%% TODO (add + verify): TIS (Think-in-Safety) safety tuning; MSR-Align;
-%% BeaverTails-V; a VLM corruption-robustness benchmark for related work;
-%% 1-2 reasoning-model-safety papers; GPT-4o system card (judge).
+@article{tis2025,
+  author  = {Xinyue Lou and You Li and Jinan Xu and Xiangyu Shi and Chi Chen and Kaiyu Huang},
+  title   = {Think in Safety: Unveiling and Mitigating Safety Alignment Collapse in Multimodal Large Reasoning Model},
+  journal = {arXiv preprint arXiv:2505.06538},
+  year    = {2025}
+}
+
+@article{msralign2025,
+  author  = {Yinan Xia and Yilei Jiang and Yingshui Tan and Xiaoyong Zhu and Xiangyu Yue and Bo Zheng},
+  title   = {MSR-Align: Policy-Grounded Multimodal Alignment for Safety-Aware Reasoning in Vision-Language Models},
+  journal = {arXiv preprint arXiv:2506.19257},
+  year    = {2025}
+}
+
+@inproceedings{ji2023beavertails,
+  author    = {Jiaming Ji and Mickel Liu and Juntao Dai and Xuehai Pan and Chi Zhang and Ce Bian and Boyuan Chen and Ruiyang Sun and Yizhou Wang and Yaodong Yang},
+  title     = {BeaverTails: Towards Improved Safety Alignment of LLM via a Human-Preference Dataset},
+  booktitle = NIPS,
+  year      = {2023}
+}
+
+@article{saferlhfv2025,
+  author  = {Jiaming Ji and Xinyu Chen and Rui Pan and Conghui Zhang and Han Zhu and Jiahao Li and Donghai Hong and Boyuan Chen and Jiayi Zhou and Kaile Wang and Juntao Dai and Chi-Min Chan and Yida Tang and Sirui Han and Yike Guo and Yaodong Yang},
+  title   = {Safe RLHF-V: Safe Reinforcement Learning from Multi-modal Human Feedback},
+  journal = {arXiv preprint arXiv:2503.17682},
+  note    = {Introduces the BeaverTails-V dataset},
+  year    = {2025}
+}
+
+@article{gpt4o2024,
+  author  = {{OpenAI}},
+  title   = {GPT-4o System Card},
+  journal = {arXiv preprint arXiv:2410.21276},
+  year    = {2024}
+}
+
+@article{zhang2024mmcbench,
+  author  = {Jiawei Zhang and Tianyu Pang and Chao Du and Yi Ren and Bo Li and Min Lin},
+  title   = {Benchmarking Large Multimodal Models against Common Corruptions},
+  journal = {arXiv preprint arXiv:2401.11943},
+  year    = {2024}
+}
+
+@article{li2024rbench,
+  author  = {Chunyi Li and Jianbo Zhang and Zicheng Zhang and Haoning Wu and Yuan Tian and Wei Sun and Guo Lu and Xiaohong Liu and Xiongkuo Min and Weisi Lin and Guangtao Zhai},
+  title   = {R-Bench: Are your Large Multimodal Model Robust to Real-world Corruptions?},
+  journal = {arXiv preprint arXiv:2410.05474},
+  year    = {2024}
+}
+
+@article{safemlrm2025,
+  author  = {Junfeng Fang and Yukai Wang and Ruipeng Wang and Zijun Yao and Kun Wang and An Zhang and Xiang Wang and Tat-Seng Chua},
+  title   = {SafeMLRM: Demystifying Safety in Multi-modal Large Reasoning Models},
+  journal = {arXiv preprint arXiv:2504.08813},
+  year    = {2025}
+}
+
+@inproceedings{liu2024improved,
+  author    = {Haotian Liu and Chunyuan Li and Yuheng Li and Yong Jae Lee},
+  title     = {Improved Baselines with Visual Instruction Tuning},
+  booktitle = CVPR,
+  year      = {2024}
+}
 
 @article{Alpher02,
 author = {FirstName Alpher},
