@@ -1,7 +1,9 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────────────────────
 # HoliSafe SI+ST->U (SSU) Conclusion-ASR judging — SAME GPT-4o R/C judge as
-# SIUO / Parts 4/8. 5 models x 4 conditions (clean/zoom_blur/snow/glass_blur).
+# SIUO / Parts 4/8. 5 models x 2 conditions (clean/zoom_blur) for now; snow and
+# glass_blur entries are generated but deferred (judge cache makes re-adding
+# them later free of rework — just restore the --entry lines).
 #
 # WHERE TO RUN: Newton login node. API-only: no GPU, no sbatch. `conda activate REU`
 # loads OPENAI_API_KEY. Run it backgrounded (stdout is block-buffered to the log):
@@ -28,22 +30,24 @@ python "$HERE/eval_hr_table1_siuo_jsonl_R_C.py" \
   --results-dir "$OUT" \
   --summary-out "$OUT/holisafe_ssu_conclusion_asr.csv" \
   --entry "clean_base_llama"         "$R/holisafe_ssu_clean_base_llama_responses.jsonl" \
-  --entry "glass_blur_base_llama"    "$R/holisafe_ssu_glass_blur_base_llama_responses.jsonl" \
-  --entry "snow_base_llama"          "$R/holisafe_ssu_snow_base_llama_responses.jsonl" \
   --entry "zoom_blur_base_llama"     "$R/holisafe_ssu_zoom_blur_base_llama_responses.jsonl" \
   --entry "clean_llava_cot"          "$R/holisafe_ssu_clean_llava_cot_responses.jsonl" \
-  --entry "glass_blur_llava_cot"     "$R/holisafe_ssu_glass_blur_llava_cot_responses.jsonl" \
-  --entry "snow_llava_cot"           "$R/holisafe_ssu_snow_llava_cot_responses.jsonl" \
   --entry "zoom_blur_llava_cot"      "$R/holisafe_ssu_zoom_blur_llava_cot_responses.jsonl" \
   --entry "clean_llamav_o1"          "$R/holisafe_ssu_clean_llamav_o1_responses.jsonl" \
-  --entry "glass_blur_llamav_o1"     "$R/holisafe_ssu_glass_blur_llamav_o1_responses.jsonl" \
-  --entry "snow_llamav_o1"           "$R/holisafe_ssu_snow_llamav_o1_responses.jsonl" \
   --entry "zoom_blur_llamav_o1"      "$R/holisafe_ssu_zoom_blur_llamav_o1_responses.jsonl" \
   --entry "clean_qwen2_5_vl"         "$R/holisafe_ssu_clean_qwen2_5_vl_responses.jsonl" \
-  --entry "glass_blur_qwen2_5_vl"    "$R/holisafe_ssu_glass_blur_qwen2_5_vl_responses.jsonl" \
-  --entry "snow_qwen2_5_vl"          "$R/holisafe_ssu_snow_qwen2_5_vl_responses.jsonl" \
   --entry "zoom_blur_qwen2_5_vl"     "$R/holisafe_ssu_zoom_blur_qwen2_5_vl_responses.jsonl" \
   --entry "clean_r1_onevision"       "$R/holisafe_ssu_clean_r1_onevision_responses.jsonl" \
-  --entry "glass_blur_r1_onevision"  "$R/holisafe_ssu_glass_blur_r1_onevision_responses.jsonl" \
-  --entry "snow_r1_onevision"        "$R/holisafe_ssu_snow_r1_onevision_responses.jsonl" \
   --entry "zoom_blur_r1_onevision"   "$R/holisafe_ssu_zoom_blur_r1_onevision_responses.jsonl"
+
+# Deferred (snow / glass_blur) — restore these lines to judge the full grid:
+#  --entry "glass_blur_base_llama"    "$R/holisafe_ssu_glass_blur_base_llama_responses.jsonl"
+#  --entry "snow_base_llama"          "$R/holisafe_ssu_snow_base_llama_responses.jsonl"
+#  --entry "glass_blur_llava_cot"     "$R/holisafe_ssu_glass_blur_llava_cot_responses.jsonl"
+#  --entry "snow_llava_cot"           "$R/holisafe_ssu_snow_llava_cot_responses.jsonl"
+#  --entry "glass_blur_llamav_o1"     "$R/holisafe_ssu_glass_blur_llamav_o1_responses.jsonl"
+#  --entry "snow_llamav_o1"           "$R/holisafe_ssu_snow_llamav_o1_responses.jsonl"
+#  --entry "glass_blur_qwen2_5_vl"    "$R/holisafe_ssu_glass_blur_qwen2_5_vl_responses.jsonl"
+#  --entry "snow_qwen2_5_vl"          "$R/holisafe_ssu_snow_qwen2_5_vl_responses.jsonl"
+#  --entry "glass_blur_r1_onevision"  "$R/holisafe_ssu_glass_blur_r1_onevision_responses.jsonl"
+#  --entry "snow_r1_onevision"        "$R/holisafe_ssu_snow_r1_onevision_responses.jsonl"
