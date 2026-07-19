@@ -21,9 +21,9 @@ from prompts import INTERVENTIONS   # ["safety", "blur_safe"]
 PARTITION = "preemptable"        # "preemptable" (free, resume-safe) | "normal" (billed)
 
 CONDITIONS = ["clean", "zoom_blur", "snow", "glass_blur"]
-# small grid: just the TIS base (llava_cot), the flagship reasoning model. Driver
-# supports all 6 Part-4 models; add here to widen.
-MODELS = ["llava_cot"]
+# Round 2 (paper): extend the defense grid beyond llava_cot (done, judged) to the
+# two other model families -> generalizes Table 3. Driver supports all 6 models.
+MODELS = ["qwen2_5_vl", "r1_onevision"]
 PROMPTS = INTERVENTIONS
 
 TIME = {"llava_cot": "04:00:00", "base_llama": "03:00:00", "llamav_o1": "04:00:00",
