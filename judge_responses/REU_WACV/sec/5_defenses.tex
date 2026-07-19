@@ -4,36 +4,55 @@
 \subsection{Safety tuning cracks under corruption}
 \label{sec:defenses:tis}
 
-Reasoning-based safety fine-tuning \TODO{TIS citation} on LLaVA-CoT cuts SIUO ASR from 67.7\% (clean, untuned) to 25.1\% (clean, tuned). But every corruption claws part of it back: $+1$ to $+8$ points, worst under zoom blur (33.5\%). Exactly as the harm-location principle predicts, the tuned model stays robust where harm is text-borne: MM-SafetyBench typographic ASR is 0\% and BeaverTails-style ASR drops $77\rightarrow\sim20$\%, both flat under corruption. The vulnerability that corruption re-opens is specifically the image-semantic one. Safety tuning also carries a measurable tax: over-refusal on benign prompts rises from 43\% to 82\% \TODO{confirm ORR numbers + which benign set; this is the safety-tax row}.
+Reasoning-based safety fine-tuning \TODO{TIS citation} on LLaVA-CoT cuts SIUO ASR from 67.7\% (clean, undefended) to 25.1\% (clean, tuned) --- and then \emph{every one} of the ten corruptions claws part of it back, by $+1.3$ (motion blur) to $+8.4$ (zoom blur) points (sign test $p{=}0.002$). In relative terms the picture is stark: zoom blur costs the tuned model a third of its safety margin while costing it only 4 points of ScienceQA accuracy. Meanwhile the same tuned model is \emph{immune} to corruption exactly where the harm-location principle predicts: on typographic MM-SafetyBench its ASR is 0\% and on text-borne BeaverTails-style prompts ASR stays flat near 20\% (down from 77\%) under every corruption --- because there the safety trigger never depended on fragile visual evidence. Safety tuning, as currently practiced, hardens the text channel and leaves the image channel soft. It also carries a tax orthogonal to corruption: over-refusal on benign prompts rises from 43\% to 82\% \TODO{confirm ORR numbers + benign set; consider moving the safety-tax discussion to its own paragraph with the XSTest/MMSA data}.
 
-\subsection{Corruption-aware fine-tuning: reasoning heals, answers don't}
+\subsection{Where does safety live? A module ablation}
 \label{sec:defenses:cat}
 
-If corruption breaks safety, can training on corrupted images restore it? We retrain the safety LoRA with 25\% clean / 25\% glass / 25\% snow / 25\% zoom images (the clean-only retrain reproduces the reference checkpoint to the fourth decimal of loss, 1.5930 vs.\ 1.5929, validating the pipeline). The result is a split verdict: the reasoning trace gets meaningfully safer (HR\textsubscript{R} $-5.6$) while the final answer does not (HR\textsubscript{C} $+2.4$). A module ablation (applying the LoRA to the vision tower, the LLM, or both) shows \TODO{summarize module ablation result from siuo\_module\_ablation figure + part7 CSVs: which module carries corruption-robust safety}. Fixing the conclusion, not the reasoning, is the open problem --- consistent with \cref{sec:results:reasoning}: the pathway from a safe reasoning trace to a safe final answer is itself fragile.
+\begin{table}[t]
+  \centering
+  \caption{\textbf{The final safety decision lives in the LLM, not the vision tower.} SIUO under zoom blur (severity 2), GPT-4o judge: reasoning-trace and conclusion ASR (\%) for the safety LoRA applied to different modules of LLaVA-CoT.}
+  \label{tab:module}
+  \small
+  \begin{tabular}{lcc}
+    \toprule
+    Safety LoRA placement & ASR\textsubscript{reasoning} & ASR\textsubscript{conclusion} \\
+    \midrule
+    clean-trained, both (reference) & 72.5 & 31.1 \\
+    corruption-trained, both        & 72.5 & 34.7 \\
+    corruption-trained, LLM only    & 67.1 & 31.7 \\
+    corruption-trained, vision only & \textbf{50.3} & 50.9 \\
+    \bottomrule
+  \end{tabular}
+\end{table}
 
-\subsection{Corruption-aware prompting: cheap and surprisingly effective}
+Can training the safety tune \emph{on corrupted images} restore robustness? We retrain the safety LoRA on a 25/25/25/25 mix of clean/glass/snow/zoom images (the clean-only control reproduces the reference checkpoint's loss to the fourth decimal, 1.5930 vs.\ 1.5929, validating the pipeline). The verdict is split along the reasoning/answer axis: the reasoning trace becomes meaningfully safer (HR\textsubscript{R} $-5.6$) while the final answer does not (HR\textsubscript{C} $+2.4$).
+
+The module ablation in \cref{tab:module} explains why, and is to our knowledge the first localization of corruption-robust safety within a VLM. Placing the corruption-aware LoRA only on the \emph{vision tower} produces the safest reasoning in the study (ASR\textsubscript{reasoning} 50.3 vs.\ 72.5 for the reference) --- adapting perception to corruption genuinely helps the model \emph{recognize} risk in degraded images --- yet its conclusion ASR is the \emph{worst} (50.9): the safer perception never reaches the final answer. Conversely, the LLM-only variant carries essentially all of the conclusion-level safety (31.7, matching the reference 31.1). The safety \emph{decision} is implemented in the language model; the vision tower only supplies its trigger. This decomposition sharpens the open problem: corruption-aware training fixes the trigger, but the decision pathway from a risk-aware reasoning trace to a refusal is itself the weakest link --- consistent with the reasoning-leakage finding of \cref{sec:results:reasoning}.
+
+\subsection{Corruption-aware prompting: cheap and effective}
 \label{sec:defenses:prompt}
 
 \begin{table}[t]
   \centering
-  \caption{\textbf{A corruption-aware system prompt recovers much of the lost safety.} SIUO HR\textsubscript{C} (\%) for LLaVA-CoT under three prompts; lower is safer. \emph{blur-safe} = safety nudge + explicit warning that the image may be degraded.}
+  \caption{\textbf{A corruption-aware system prompt recovers most of the lost safety at zero training cost.} SIUO HR\textsubscript{C} (\%) for LLaVA-CoT; lower is safer. \emph{blur-safe} = generic safety nudge $+$ explicit warning that the image may be degraded. The blur-safe prompt beats the generic prompt in all four conditions and drives every corrupted condition below the undefended \emph{clean} baseline (68.3).}
   \label{tab:prompting}
   \small
   \begin{tabular}{lccc}
     \toprule
     Condition & no prompt & safety & blur-safe \\
     \midrule
-    clean      & 68.3 & 59.9 & 52.1 \\
-    zoom blur  & 74.8 & 62.3 & 53.9 \\
-    snow       & 71.9 & 58.7 & 50.9 \\
-    glass blur & 71.3 & 61.7 & 56.9 \\
+    clean      & 68.3 & 59.9 & \textbf{52.1} \\
+    zoom blur  & 74.8 & 62.3 & \textbf{53.9} \\
+    snow       & 71.9 & 58.7 & \textbf{50.9} \\
+    glass blur & 71.3 & 61.7 & \textbf{56.9} \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-A system prompt that tells the model to check safety --- and that the image may be corrupted --- requires no training at all. \Cref{tab:prompting} shows it is the strongest defense in this paper: the blur-safe prompt beats no-prompt by 15--21 points and beats the generic safety prompt in all four conditions, driving corrupted-image safety \emph{below} the undefended clean baseline. The corruption-awareness itself contributes 5--8 points over the generic nudge. Utility cost is negligible (MathVista $53.5\rightarrow53.0$ across prompts). \TODO{ScienceQA prompting-utility numbers for the same three prompts.}
+A system prompt that tells the model to check safety --- and that the image may be corrupted --- requires no training, no data, and no weight access. \Cref{tab:prompting} shows it is the strongest defense in this study: 15--21 points of HR\textsubscript{C} over no defense, a consistent 5--8 points over the corruption-agnostic safety prompt, and corrupted-input safety better than the undefended model achieves on \emph{clean} input. Warning the model that its visual evidence may be unreliable changes how it resolves ambiguity --- precisely the failure mode of \cref{sec:results:harmloc}, where corrupted evidence was resolved as ``unrelated to the image.'' The utility cost is negligible: MathVista moves 53.5$\rightarrow$53.0 and ScienceQA 90.8$\rightarrow$94.0 across the same prompts. The obvious limitation is single-model evidence; extending this table to the remaining models is the highest-value missing experiment in the paper. \TODO{If time permits before submission: run the 3-prompt grid on Qwen2.5-VL and R1-Onevision.}
 
-\subsection{Discussion and limitations}
+\subsection{Limitations}
 \label{sec:defenses:limits}
 
-\TODO{Honest limitations paragraph: (i) GPT-4o judge --- add human-agreement audit; (ii) SIUO is $n{=}167$, so single-cell deltas of $<$4 points are within judge noise --- lean on consistency across 6 models $\times$ 3 corruptions and on the $n{=}476$ HoliSafe replication + paired statistical tests (McNemar on per-sample flips); (iii) corruption-aware FT results are one recipe on one model; (iv) prompting defense evaluated on one model so far.}
+Our headline metrics flow through a GPT-4o judge; we mitigate with paired statistics, a clean-image Llama-Guard judge for FigStep, and \TODO{a human-agreement audit on $\sim$50 items (run this)}, but judge bias cannot be fully excluded. SIUO is small ($n{=}167$); we therefore never interpret single cells, and the $n{=}476$ HoliSafe replication \TODO{pending} carries the load-bearing universality claim. The corruption-aware fine-tuning result is one recipe (LoRA $r{=}8$, one mixing ratio) on one model, and the prompting defense is evaluated on one model. Finally, all evaluations use synthetic ImageNet-C corruptions; real captured degradations (motion at capture time, sensor noise, compression stacks) are correlated differently and deserve a dedicated benchmark.
