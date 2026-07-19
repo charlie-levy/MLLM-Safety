@@ -1,0 +1,53 @@
+\section{Corruption Breaks Safety Before Capability}
+\label{sec:results}
+
+\subsection{Safety degrades universally}
+\label{sec:results:main}
+
+\begin{table}[t]
+  \centering
+  \caption{\textbf{Image corruptions weaken safety in every model.} Final-answer harmful rate HR\textsubscript{C} (\%) on SIUO (167 items, GPT-4o judge); higher = less safe. Every model degrades under every corruption.}
+  \label{tab:siuo-main}
+  \small
+  \begin{tabular}{lccccc}
+    \toprule
+    Model & clean & glass & snow & zoom & $\Delta$worst \\
+    \midrule
+    Llama-3.2-V (base) & 60.5 & 61.1 & 64.7 & 69.5 & $+9.0$ \\
+    LLaVA-CoT          & 68.3 & 71.3 & 71.9 & 74.8 & $+6.5$ \\
+    Qwen2.5-VL         & 70.1 & 73.0 & 73.0 & 74.2 & $+4.1$ \\
+    LlamaV-o1          & 80.8 & 82.0 & 86.8 & 83.2 & $+6.0$ \\
+    R1-Onevision       & 83.8 & 85.6 & 84.4 & 86.8 & $+3.0$ \\
+    R1-Onevision (no-think) & 83.8 & 90.4 & 89.8 & 88.6 & $+6.6$ \\
+    \bottomrule
+  \end{tabular}
+  \TODO{Verify LlamaV-o1 row column order against figures/siuo\_asr\_scores.json (restaged values: clean 83.2, glass 80.8, snow 82.0, zoom 86.8 --- reconcile which condition maps to which column, then recompute $\Delta$worst).}
+\end{table}
+
+\Cref{tab:siuo-main} shows the core result on SIUO. All six configurations become less safe under all three corruptions \TODO{pending the LlamaV-o1 column-order fix}; the mean degradation is $\sim$6 points of HR\textsubscript{C} and zoom blur is the most damaging corruption overall.
+
+\TODO{Table/figure: HoliSafe SSU replication --- 5 models $\times$ 4 conditions, $n{=}476$, GPT-4o judge. Judge currently running; this is the second, larger-$n$ leg of the universality claim. Figure exists as plot script (plot\_holisafe\_ssu\_asr.py).}
+
+\TODO{Dose--response subsection: HR/ASR vs.\ severity curves (a single severity cannot separate a real effect from judge noise; we have blur/noise severity sweeps for FigStep and zoom-blur severities elsewhere --- decide which sweep is cleanest to present).}
+
+\subsection{Utility survives the same corruptions}
+\label{sec:results:decoupling}
+
+Under the identical corruption pipeline, ScienceQA accuracy for the safety-tuned LLaVA-CoT stays between 82\% and 92\% across all ten corruption types (clean: 90.4\%), with only blurs producing visible dips; MathVista accuracy moves by $\le$0.5 points under prompting defenses and $\le$1 point under module-ablated safety tuning. The models still \emph{see} well enough to answer benign questions --- they no longer see well enough to \emph{refuse}. This asymmetry is the safety--capability decoupling of the title, and it implies that measuring utility robustness tells you nothing about safety robustness. \TODO{Figure: two-panel decoupling money plot --- left: SQA utility vs.\ corruption (flat); right: SIUO HR\textsubscript{C} vs.\ corruption (rising). Both axes same corruption set. This figure does not exist yet and is the single most important new figure for the paper.}
+
+\subsection{The harm-location principle}
+\label{sec:results:harmloc}
+
+Corruption's effect on safety is \emph{signed}, and the sign is predicted by where the harm signal lives (\cref{fig:signed}): typographic MM-SafetyBench ASR \emph{falls} $83.3\rightarrow72.0$ under zoom blur (blurring the attack destroys the attack), VLSBench ASR \emph{rises} $81.6\rightarrow88.6$ (blurring the evidence hides the risk), SPA-VL is approximately neutral, and HoliSafe rises $83.6\rightarrow87.4$. Text-borne harm is untouched. A model's own reasoning shows the mechanism: on clean input LLaVA-CoT articulates the danger (``microwaving eggs can explode'') and refuses; on the corrupted twin it decides the request ``seems unrelated to the image'' and complies.
+
+\begin{figure}[t]
+  \centering
+  \fbox{\rule{0pt}{1.6in} \rule{0.9\linewidth}{0pt}}
+  \caption{\textbf{Corruption helps safety only when the image \emph{is} the attack.} Signed change in ASR under zoom blur across four benchmarks that differ in where the harm lives. \TODO{Regenerate part10\_signed\_effect.png in paper style and include.}}
+  \label{fig:signed}
+\end{figure}
+
+\subsection{Reasoning does not buy safety}
+\label{sec:results:reasoning}
+
+The safest model in \cref{tab:siuo-main} is not the strongest reasoner, and the strongest reasoner (R1-Onevision, 84--87\% HR\textsubscript{C}) is the least safe; suppressing its thinking changes little on clean input. Forcing thinking budgets of 0/512/2048 tokens on a 50-item pilot leaves HR\textsubscript{C} within noise of 84\% everywhere, clean or corrupted. Moreover HR\textsubscript{R} $\ge$ HR\textsubscript{C} throughout: models routinely surface the harm in their reasoning and comply anyway --- reasoning \emph{leaks} harm more often than it blocks it.

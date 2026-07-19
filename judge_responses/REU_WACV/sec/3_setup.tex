@@ -1,0 +1,23 @@
+\section{Evaluation Protocol}
+\label{sec:setup}
+
+\paragraph{Models.}
+We evaluate five open VLMs in six configurations, chosen to span non-reasoning and reasoning designs at comparable scale: Llama-3.2-11B-Vision-Instruct~\cite{llama3herd} (the non-reasoning base), LLaVA-CoT (11B)~\cite{xu2024llavacot}, Qwen2.5-VL-7B~\cite{bai2025qwen25vl}, LlamaV-o1 (11B)~\cite{thawakar2025llamavo1}, and R1-Onevision (7B)~\cite{yang2025r1onevision} evaluated both with its native thinking mode and with thinking suppressed (\emph{no-think}). All safety fine-tuning experiments (\cref{sec:defenses}) use LoRA~\cite{hu2022lora} ($r{=}8$, $\alpha{=}16$) on LLaVA-CoT.
+
+\paragraph{Frozen inference.}
+Every number in this paper comes from one inference protocol: bf16, greedy decoding, up to 2048 new tokens, identical prompts across conditions. Corruption is the \emph{only} thing that changes between a clean cell and a corrupted cell, so any difference in safety behavior is attributable to the image.
+
+\paragraph{Corruptions.}
+We use ImageNet-C~\cite{hendrycks2019benchmarking} corruption functions applied to benchmark images at controlled severities. The main grids use three corruptions chosen in a pilot to span the perceptual range --- \emph{glass blur}, \emph{snow}, and \emph{zoom blur} --- with severities \TODO{glass 5, snow 3, zoom 3 for HoliSafe; confirm the SIUO grid severities match and state them here}; utility and dose--response analyses extend to ten corruption types and the full severity range. \TODO{Figure: corruption gallery on one benchmark image (exists: qc\_corruption\_grid.png).}
+
+\paragraph{Benchmarks: locating the harm.}
+We organize safety benchmarks by \emph{where the harm signal lives}, which \cref{sec:results} shows is the variable that determines corruption's effect:
+\begin{itemize}
+  \item \textbf{Image semantics:} SIUO~\cite{siuo2024} (167 items; safe text whose risk emerges from the image), the HoliSafe~\cite{holisafe2025} safe-image$+$safe-text$\rightarrow$unsafe subset (476 items), and VLSBench~\cite{hu2024vlsbench} (risk visible only in the image).
+  \item \textbf{Rendered text (image as attack vector):} MM-SafetyBench~\cite{liu2024mmsafetybench} typographic split and FigStep~\cite{gong2023figstep}.
+  \item \textbf{Text prompt:} BeaverTails-style harmful text with irrelevant images \TODO{verify BeaverTails-V citation}.
+  \item \textbf{Utility controls:} ScienceQA~\cite{lu2022scienceqa} and MathVista~\cite{lu2024mathvista} under the same corruptions; over-refusal on XSTest~\cite{rottger2024xstest} and benign MM-SafetyBench-style prompts.
+\end{itemize}
+
+\paragraph{Judging.}
+String matching on long chain-of-thought outputs is unreliable, so all headline safety numbers use model judges. Our primary metric is a GPT-4o judge that reads the full model output and separately scores (i) the \emph{reasoning trace} and (ii) the \emph{final answer} as harmful or safe, yielding a reasoning harmful rate (HR\textsubscript{R}) and a conclusion harmful rate (HR\textsubscript{C}); higher is less safe. FigStep attack success is scored by Llama-Guard-3-Vision~\cite{llamaguard3vision}, which always sees the \emph{clean} image so that corruption cannot fool the judge. Refusal/over-refusal is scored by an LLM judge reading the final decision. \TODO{Judge-validity paragraph: report agreement between GPT-4o judge and human labels on a $\sim$50-sample audit --- we should actually run this.}
