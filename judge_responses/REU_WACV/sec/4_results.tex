@@ -46,6 +46,18 @@
 
 \Cref{tab:holisafe} reports a replication on the HoliSafe safe-image$+$safe-text$\rightarrow$unsafe subset, an independent 476-item benchmark scored by the same judge. Three of five models degrade under zoom blur in the final answer (four of five in the reasoning trace), and the LLaVA-CoT effect ($+4.0$) closely matches an earlier, independently-computed refusal-based estimate on this benchmark ($+3.8$; \cref{fig:signed}), two different scoring methods agreeing on the same sign and magnitude. The replication is directionally weaker than SIUO: Qwen2.5-VL is flat and R1-Onevision's final answer \emph{improves} slightly under blur, the same pattern of occasional model-specific exceptions we see with LlamaV-o1 on SIUO (\cref{tab:siuo-main}). We read this as consistent with, not identical to, the SIUO result --- HoliSafe's items are drawn from a broader, less adversarially curated pool, so a smaller and noisier effect is expected even if the underlying mechanism is the same.
 
+\subsection{The effect saturates at low severity}
+\label{sec:results:dose}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figures/dose_response.pdf}
+  \caption{\textbf{Corruption breaks safety at a low threshold, then saturates.} Harmful rate on the same 167 SIUO items across zoom-blur severities 1--5 (clean shaded) for two models. Every corrupted severity lies above clean for both the reasoning trace (HR\textsubscript{R}) and the final answer (HR\textsubscript{C}), but the increase is captured almost entirely by severity 1 --- further degradation neither recovers nor substantially worsens safety ($\pm$3--4 points is $\sim$7 items of $n{=}167$ noise).}
+  \label{fig:dose}
+\end{figure}
+
+To test whether the safety drop depends on the particular severity used elsewhere in this paper, we re-judge the same 167 SIUO items across the full zoom-blur severity range for LLaVA-CoT and Qwen2.5-VL (\cref{fig:dose}). The response is not gradual but threshold-like: severity~1 already lifts harmful rate above the clean baseline by most of its eventual amount, and severities 2--5 stay on that elevated plateau rather than climbing further. A small, near-imperceptible amount of corruption is thus sufficient to disconnect the safety trigger from the image, after which additional blur has little marginal effect. Two consequences follow. First, the effect is not an artifact of severity choice --- every level we test degrades safety, so the single-severity ablations elsewhere are representative rather than cherry-picked. Second, the practical exposure is worse than a linear reading would suggest: safety fails at the mild corruption levels that ordinary capture and compression produce, not only at extreme ones.
+
 \subsection{Utility survives the same corruptions}
 \label{sec:results:decoupling}
 
