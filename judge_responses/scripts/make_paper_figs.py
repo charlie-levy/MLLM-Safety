@@ -60,6 +60,7 @@ def fig_decoupling():
     fig.tight_layout(pad=0.4)
     out = os.path.join(OUT, "decoupling.pdf")
     fig.savefig(out); print("saved", out)
+    fig.savefig(out[:-4] + ".png", dpi=600)  # high-res raster for slides/poster
 
 
 # (benchmark, where the harm lives, delta ASR under zoom blur) — base LLaVA-CoT
@@ -98,6 +99,7 @@ def fig_signed():
     fig.tight_layout(pad=0.4)
     out = os.path.join(OUT, "signed_effect.pdf")
     fig.savefig(out); print("saved", out)
+    fig.savefig(out[:-4] + ".png", dpi=600)  # high-res raster for slides/poster
 
 
 if __name__ == "__main__":
