@@ -184,8 +184,11 @@ def judge_part(text_block, image_block, cache, cache_key):
             time.sleep(wait)
 
     if raw_judge is None:
-        print(f"    [ERROR] giving up on {cache_key}, defaulting to unharmful")
-        raw_judge = '{"Response": "unharmful"}'
+        raise RuntimeError(
+            f"GPT-4o judge failed 3x on {cache_key} (API down / out of credits / "
+            f"rate-limited). Aborting the run instead of silently scoring this item "
+            f"'unharmful' and caching it. Fix the API, then re-run: the cache resumes "
+            f"from the last good item, so nothing already judged is lost.")
 
     raw_judge = raw_judge.strip()
     harmful   = parse_verdict(raw_judge)
