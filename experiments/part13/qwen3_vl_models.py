@@ -70,8 +70,17 @@ def load_qwen3(model_key):
 
 
 @torch.inference_mode()
-def generate_one_qwen3(model, processor, image, prompt, max_new_tokens=4096, no_think=False):
-    """Greedy single-sample generation, identical pattern to generate_one_qwen.
+def generate_one_qwen3(model, processor, image, prompt, max_new_tokens=4096,
+                       no_think=False, repetition_penalty=1.1):
+    """Greedy single-sample generation, same pattern as generate_one_qwen.
+
+    DECODING NOTE: pure greedy (do_sample=False) makes Qwen3-VL fall into
+    degenerate repetition loops (verified on the SIUO smoke test: the Instruct
+    model repeated one block until it hit the token cap). We keep greedy — so the
+    run stays deterministic and reproducible — but add a mild repetition_penalty
+    (1.1) to suppress the loop. It is applied IDENTICALLY to Instruct and Thinking,
+    so the Instruct-vs-Thinking contrast (the E1 claim) is unaffected; only the
+    absolute HR vs the pure-greedy Qwen2.5-VL row needs the footnote.
 
     no_think=True: prefill a CLOSED, EMPTY <think></think> block so the Thinking
     model skips its reasoning and answers directly on the SAME weights. The
@@ -88,7 +97,8 @@ def generate_one_qwen3(model, processor, image, prompt, max_new_tokens=4096, no_
     image_inputs, video_inputs = process_vision_info(messages)
     inputs = processor(text=[text], images=image_inputs, videos=video_inputs,
                        padding=True, return_tensors="pt").to(model.device)
-    generated = model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False)
+    generated = model.generate(**inputs, max_new_tokens=max_new_tokens, do_sample=False,
+                               repetition_penalty=repetition_penalty)
     trimmed = [out[len(inp):] for inp, out in zip(inputs.input_ids, generated)]
     return processor.batch_decode(trimmed, skip_special_tokens=True,
                                   clean_up_tokenization_spaces=False)[0].strip()

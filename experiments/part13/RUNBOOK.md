@@ -16,9 +16,15 @@ switches, so we don't rest anything on it; the smoke test just tells us if it
 happens to work.
 
 Everything else is REUSED UNCHANGED from part4/part8 (SIUO-167 samples, corruptions
-+ severities: zoom sev3 / snow sev3 / glass sev5, greedy decoding, 4096-token
-Qwen-family budget, jsonl schema, GPT-4o R/C judge) → directly comparable to the
-Qwen2.5-VL row already in the paper.
++ severities: zoom sev3 / snow sev3 / glass sev5, 4096-token Qwen-family budget,
+jsonl schema, GPT-4o R/C judge) → directly comparable to the Qwen2.5-VL row.
+
+**Decoding caveat (verified on the smoke test):** pure greedy makes Qwen3-VL loop
+(the Instruct model repeated one block to the token cap). We keep greedy +
+`repetition_penalty=1.1`, applied identically to Instruct and Thinking, so the
+E1 contrast is unaffected; footnote the absolute HR vs the pure-greedy Qwen2.5-VL
+row. Re-run the idx-1002 smoke item after `git pull` to confirm the loop is gone
+before launching the 8 jobs.
 
 ---
 
@@ -72,7 +78,7 @@ python run_inference_qwen3.py --model qwen3_vl_thinking_nothink --condition clea
 ```bash
 for M in qwen3_vl_instruct qwen3_vl_thinking; do
   for C in clean zoom_blur snow glass_blur; do
-    sbatch --gres=gpu:nvidia_h100_pcie:1 --mem=80G --exclude=evc42,evc44 \
+    sbatch --gres=gpu:nvidia_h100_pcie:1 --mem=80G --time=06:00:00 --exclude=evc42,evc44 \
       --job-name="p13_${M}_${C}" \
       --wrap="export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_HUB_DISABLE_XET=1 HF_HUB_ENABLE_HF_TRANSFER=0; \
               conda run -n qwen3vl python ~/llava_cot_eval/experiments/part13/run_inference_qwen3.py \
