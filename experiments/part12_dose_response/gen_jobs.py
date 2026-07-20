@@ -14,7 +14,7 @@ Same frozen decode as Part 4; loads from ~/.cache (HF_HUB_OFFLINE), --mem=80G.
 import os
 
 # ── partition: flip this one line, then re-run gen_jobs.py ───────────────────────
-PARTITION = "preemptable"        # "preemptable" (free, resume-safe) | "normal" (billed)
+PARTITION = "normal"        # "preemptable" (free, resume-safe) | "normal" (billed)
 
 CONDITION = "zoom_blur"
 SEVERITIES = [1, 2, 4, 5]        # 3 == Part 4 cell (reused); 0/clean == Part 4 clean

@@ -18,7 +18,7 @@ import os
 from prompts import INTERVENTIONS   # ["safety", "blur_safe"]
 
 # ── partition: flip this one line, then re-run gen_jobs.py ───────────────────────
-PARTITION = "preemptable"        # "preemptable" (free, resume-safe) | "normal" (billed)
+PARTITION = "normal"        # "preemptable" (free, resume-safe) | "normal" (billed)
 
 CONDITIONS = ["clean", "zoom_blur", "snow", "glass_blur"]
 # Round 2 (paper): extend the defense grid beyond llava_cot (done, judged) to the
