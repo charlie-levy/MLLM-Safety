@@ -143,10 +143,14 @@ def encode_image(image_path):
 
 
 def call_gpt4o(content_blocks):
+    # Explicit per-call timeout: without it the SDK default (~10 min) lets a flaky
+    # network call block silently forever — no exception, so the retry/fail-loud
+    # path never fires. 60s -> a hang raises, gets retried, then aborts loudly.
     res = client.chat.completions.create(
         model="gpt-4o",
         temperature=0,
         max_tokens=64,
+        timeout=60,
         messages=[
             {"role": "system", "content": C5_SYSTEM},
             {"role": "user",   "content": content_blocks},
