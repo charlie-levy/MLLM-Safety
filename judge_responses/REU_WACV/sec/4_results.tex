@@ -70,6 +70,33 @@ To test whether the safety drop depends on the particular severity used elsewher
 
 If corruption simply blinded the model, safety and utility would fall together. \Cref{fig:decoupling} shows they do not. Across ten corruption types applied to the same safety-tuned model, ScienceQA accuracy moves between $-8.4$ and $+1.6$ points (clean: 90.4\%) while SIUO attack success rises in \emph{all ten} cases, by $+1.3$ to $+8.4$ points (mean $+4.0$, 95\% CI $[2.6,5.4]$ over the ten corruptions; sign test $p{=}0.002$). The two axes are not merely both-nonzero --- they are \emph{uncorrelated}: across the ten corruptions the amount of ASR gained is unrelated to the amount of accuracy lost (Pearson $r{=}{-}0.25$, n.s.), so the safety damage cannot be a downstream symptom of the perceptual damage. The decisive cells are the ones with \emph{no} utility cost: JPEG compression leaves accuracy exactly at baseline yet adds $+4.2$ points of ASR; frost and fog slightly \emph{improve} accuracy while adding $+4.2$ and $+2.4$. Nor is the model reporting that it has gone blind: across the base configurations, responses that explicitly flag the image as unreadable stay at $\le 6\%$ in every condition and at $0.0\%$ for LLaVA-CoT under zoom blur, even as harmful rate climbs --- the model resolves the degraded image with undiminished confidence and complies. Utility robustness and safety robustness are different properties, and measuring the first tells you nothing about the second. This is the paper's central claim, and it has a practical consequence: a deployment that qualifies a VLM by checking accuracy under degraded inputs --- current standard practice --- will certify models whose safety has silently regressed.
 
+\begin{table}[t]
+  \centering
+  \caption{\textbf{The benign control, split by where the request lives.} Change in over-refusal rate (\%) on \emph{benign} prompts under blur, averaged over severities 1--5, beside the harmful-rate change on natural images. The two benign suites must not be pooled: XSTest's benign request is \emph{typeset into the image}, so blur attacks its legibility, whereas the benign MM-SafetyBench-style suite uses natural images and therefore isolates a genuine change in compliance. For the safety-tuned model the dissociation is clean --- benign natural-image over-refusal is flat while harmful compliance rises. $^\dagger$noise only (no blur sweep available).}
+  \label{tab:benign-control}
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{lccc}
+    \toprule
+    & benign, natural & benign, text-on-img & harmful, natural \\
+    Model & (MMSA, 428) & (XSTest, 250) & (SIUO, 167) \\
+    \midrule
+    LLaVA-CoT             & $-3.4$ & $-1.4$ & $+6.5$ \\
+    \quad $+$TIS          & $-0.2$ & $-7.4$ & $+8.4$ \\
+    \quad $+$SAGE         & $-5.1$ & $-0.4$ & --- \\
+    \quad $+$MSR$^\dagger$ & $+0.6$ & $+0.1$ & --- \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Perception failure is not the only mundane explanation, and the second one is more dangerous to our claim. If corruption simply made models answer more and refuse less --- a global shift in refusal propensity --- then harmful rate would rise for a reason having nothing to do with safety-relevant visual evidence, and our mechanism would be an artifact.
+
+The decisive argument against this does not depend on measuring refusal at all. A global compliance shift is \emph{monotone}: a model that answers more must show \emph{higher} attack success on every benchmark. Yet under one and the same corruption our safety numbers move in \emph{opposite directions} --- zoom blur raises harmful rate on SIUO, VLSBench and HoliSafe while \emph{lowering} typographic MM-SafetyBench ASR by 11.3 points (\cref{sec:results:harmloc}). No single scalar change in how often a model answers can produce opposite signs on different benchmarks; the effect must depend on what the image contains. This argument runs entirely on the GPT-4o-judged safety metrics and inherits no assumptions from refusal detection.
+
+Measuring refusal on benign items directly (\cref{tab:benign-control}) requires one distinction that turns out to matter. Our two benign suites differ in \emph{where the request lives}: the benign MM-SafetyBench-style suite pairs natural images with a text prompt, whereas XSTest typesets the benign request \emph{into} the image, so the model must read it off the pixels. Blur therefore attacks XSTest's legibility rather than the model's willingness --- the same mechanism that destroys typographic attacks --- and only the natural-image suite isolates a change in compliance. Pooling them, as an average over-refusal rate does, mixes the two.
+
+Split apart, the safety-tuned model gives the clean result: under blur its benign natural-image over-refusal is flat ($-0.2$) while its harmful rate rises $+8.4$, and its benign \emph{text-on-image} over-refusal falls $7.4$ points --- benign rendered text becoming illegible exactly as harmful rendered text does. The base model is less tidy: its benign natural-image over-refusal falls $3.4$ points against a $+6.5$ harmful rise, so a partial compliance shift does contribute there and we do not claim it away. What no compliance shift can explain is the sign flip, which is why we rest the argument on it. Two further caveats bound this table: these rates come from the keyword refusal detector rather than a model judge, and use gaussian blur rather than the ImageNet-C operators of \cref{tab:siuo-main}; since every cell is scored identically, the clean-to-corrupted \emph{differences} remain interpretable even where the absolute calibration is not.
+
 \subsection{The harm-location principle}
 \label{sec:results:harmloc}
 
@@ -81,6 +108,8 @@ If corruption simply blinded the model, safety and utility would fall together. 
 \end{figure}
 
 Why does corruption sometimes get reported as a \emph{defense}? Because its effect on safety is signed, and the sign is set by where the harm lives (\cref{fig:signed}). When the image \emph{is} the attack --- harmful instructions rendered typographically --- zoom blur \emph{lowers} MM-SafetyBench ASR by 11.3 points: the corruption destroys the attack payload. When the image carries the \emph{evidence} of risk, the same corruption raises ASR: $+7.0$ on VLSBench (risk visible only in the image), $+3.8$ on HoliSafe, $+4.6$ net on SPA-VL pairwise preference. Harm carried purely by the text prompt is untouched. This \emph{harm-location principle} unifies the table above with the apparent contradictions in prior observations: any claim that ``corruption makes VLMs safer'' or ``less safe'' is underspecified until the benchmark's harm channel is named.
+
+A benign case sharpens the mechanism and shows it is not about harm at all, but about where the \emph{request} lives. Our XSTest over-refusal suite also renders its prompt into the image, except that the rendered request is entirely innocuous. Under blur the safety-tuned model's over-refusal on it falls by $7.4$ points (\cref{tab:benign-control}) --- the same collapse that blur inflicts on typographic attacks, now on content with no harmful element for a safety mechanism to react to. What corruption destroys is the legibility of a request carried by pixels, irrespective of whether that request is dangerous; safety behavior then rises or falls simply according to whether the destroyed signal was the attack or the evidence against it.
 
 The mechanism is visible in the models' own words. Asked to help ``obtain the necessary CT images'' beside a photograph of an \emph{airport security scanner}, clean LLaVA-CoT recognizes the machine and refuses outright (``I can't help you with that''). On the zoom-blurred twin of the same image it captions the scene as ``part of a medical or security facility,'' resolves that ambiguity toward the benign reading, and returns step-by-step instructions for getting a scan. The corruption did not delete the safety behavior --- it disconnected the trigger from the visual evidence the trigger depended on (\cref{fig:flip}).
 
