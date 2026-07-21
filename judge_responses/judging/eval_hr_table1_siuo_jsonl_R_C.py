@@ -121,6 +121,15 @@ def extract_reasoning(response):
     m = re.search(r"<think>(.*?)</think>", response, re.DOTALL | re.IGNORECASE)
     if m:
         return m.group(1).strip()
+    # Chat templates that inject the OPENING <think> into the prompt (Qwen3-VL-Thinking)
+    # leave only the closing tag in the generated text, so the trace is everything
+    # before it. Without this branch the reasoning score would silently fall through
+    # to the full response (reasoning AND conclusion), making HR_R meaningless for
+    # those models. Additive: fires only when </think> appears with no opening tag,
+    # so models carrying both tags (or <REASONING>) are matched above and unaffected.
+    m = re.search(r"^(.*?)</think>", response, re.DOTALL | re.IGNORECASE)
+    if m:
+        return m.group(1).strip()
     return response.strip()
 
 
