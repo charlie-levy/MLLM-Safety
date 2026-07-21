@@ -33,7 +33,17 @@ export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_HUB_DISABLE_XET=1 HF_HUB_ENABL
 
 ## 1. SMOKE TEST — the correctness gate (3 items, nothing written)
 
-Run one model per **family**, because the three generation paths differ:
+**This loads models, so it MUST be inside a GPU session** — on a login node the
+`RLIMIT_NPROC ~100` cap makes the torch import hang or segfault, with no error:
+
+```bash
+srun --gres=gpu:nvidia_h100_pcie:1 --mem=80G --exclude=evc42,evc44 --time=00:40:00 --pty bash
+source /apps/anaconda/anaconda-2024.10/etc/profile.d/conda.sh && conda activate REU
+export HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 HF_HUB_DISABLE_XET=1 HF_HUB_ENABLE_HF_TRANSFER=0
+```
+
+Then run one model per **family**, because the three generation paths differ (expect
+2–4 min of silence while BOTH the VLM and the LLaMA grader load):
 
 ```bash
 cd ~/llava_cot_eval/experiments/part14_decoupling

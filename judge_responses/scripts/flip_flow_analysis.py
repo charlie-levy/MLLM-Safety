@@ -56,10 +56,15 @@ def load_cell(path, metric):
 
 
 def split_name(stem):
-    """'<condition>_<model>' -> (condition, model); longest matching prefix wins."""
+    """-> (condition, model). Two naming conventions are in use across the project:
+         part8/part12/part13 entries are '<condition>_<model>'  (clean_qwen3_vl_instruct)
+         part4 entries are     '<model>-<condition>'            (llamav_o1-zoom_blur)
+    Longest matching condition wins so 'blur' never shadows 'zoom_blur'/'glass_blur'."""
     for c in sorted(CONDITIONS, key=len, reverse=True):
         if stem.startswith(c + "_"):
             return c, stem[len(c) + 1:]
+        if stem.endswith("-" + c):
+            return c, stem[:-(len(c) + 1)]
     return None, stem
 
 
@@ -106,6 +111,22 @@ def main():
             c = sum(1 for i in shared if base[i] and not cur[i])
             n = len(shared)
             p = mcnemar_exact_two_sided(b, c)
+
+            # DEGENERATE-CELL GUARD. When the judge run died mid-way, the pre-fix code
+            # cached {"Response":"unharmful"} for every remaining item, so the whole
+            # corrupted cell scores 0% harmful. That yields b=0 with a large c, which
+            # reads as "corruption made the model dramatically safer" and, pooled, can
+            # flip the sign of the overall conclusion. Detect and exclude it rather
+            # than reporting a reversed result. (Real cells never have b exactly 0
+            # while dozens of items move the other way.)
+            n_harm_corrupt = sum(1 for i in shared if cur[i])
+            degenerate = (n_harm_corrupt == 0 and c >= 10)
+            if degenerate:
+                print("%-26s %-11s %5d %5d %5d %+6d %+7.1f%% %9s   DEGENERATE: corrupted "
+                      "cell is 0%% harmful -- judge failure, EXCLUDED from pooled"
+                      % (m, cond, n, b, c, b - c, (b - c) / n * 100 if n else 0, "--"))
+                continue
+
             tot_b += b
             tot_c += c
             star = " *" if p < 0.05 else ""
