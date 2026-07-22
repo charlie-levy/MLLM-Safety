@@ -4,33 +4,35 @@
 \subsection{Safety tuning cracks under corruption}
 \label{sec:defenses:tis}
 
-Reasoning-based safety fine-tuning on Think-in-Safety data~\cite{tis2025} applied to LLaVA-CoT cuts SIUO ASR from 67.7\% (clean, undefended) to 25.1\% (clean, tuned) --- and then \emph{every one} of the ten corruptions claws part of it back, by $+1.3$ (motion blur) to $+8.4$ (zoom blur) points (sign test $p{=}0.002$). In relative terms the picture is stark: zoom blur costs the tuned model a third of its safety margin while costing it only 4 points of ScienceQA accuracy. Meanwhile the same tuned model is \emph{immune} to corruption exactly where the harm-location principle predicts: on typographic MM-SafetyBench its ASR is 0\% and on text-borne BeaverTails-style prompts ASR stays flat near 20\% (down from 77\%) under every corruption --- because there the safety trigger never depended on fragile visual evidence. Safety tuning, as currently practiced, hardens the text channel and leaves the image channel soft. It also carries a tax orthogonal to corruption: on benign prompts, over-refusal roughly doubles with TIS tuning, from 43.2\% to 82.3\% (mean over the adapted XSTest~\cite{rottger2024xstest} safe subset, 26.8\% to 74.8\% of 250 items, and the MMSafeAware~\cite{wang2025mmsafeaware} over-safety subset, 59.6\% to 89.7\% of 428 items; an item counts as over-refused if the model either returns an explicit refusal or judges the benign content unsafe).
+Reasoning-based safety fine-tuning on Think-in-Safety data~\cite{tis2025} applied to LLaVA-CoT cuts SIUO HR\textsubscript{C} from 67.7\% (clean, undefended) to 25.1\% (clean, tuned)\footnote{The undefended clean cell is re-judged independently here and in \cref{tab:siuo-main}, which gives 67.7 and 68.3 --- a one-item difference on $n{=}167$. We quote each run's own value rather than silently harmonizing them; the gap bounds this judge's run-to-run variation on a single cell.} --- and then \emph{every one} of the ten corruptions claws part of it back, by $+1.3$ (motion blur) to $+8.4$ (zoom blur) points (sign test $p{=}0.002$). In relative terms the picture is stark: zoom blur costs the tuned model a third of its safety margin while costing it only 4 points of ScienceQA accuracy. Meanwhile the same tuned model is \emph{immune} to corruption exactly where the harm-location principle predicts: on typographic MM-SafetyBench its ASR is 0\% and on text-borne BeaverTails-style prompts ASR stays flat near 20\% (down from 77\%) under every corruption --- because there the safety trigger never depended on fragile visual evidence. Safety tuning, as currently practiced, hardens the text channel and leaves the image channel soft. It also carries a tax orthogonal to corruption: on benign prompts, over-refusal rises steeply with TIS tuning on both benign suites --- from 59.6\% to 89.7\% on the MMSafeAware~\cite{wang2025mmsafeaware} over-safety subset (428 natural-image items) and from 26.8\% to 74.8\% on the adapted XSTest~\cite{rottger2024xstest} safe subset (250 text-on-image items), where an item counts as over-refused if the model either returns an explicit refusal or judges the benign content unsafe. We report the two separately rather than as one average, for the reason \cref{tab:benign-control} makes precise: the suites differ in where the request lives, so a pooled over-refusal rate mixes a change in compliance with a change in legibility.
 
 \subsection{Where does safety live? A module ablation}
 \label{sec:defenses:cat}
 
 \begin{table}[t]
   \centering
-  \caption{\textbf{The final safety decision lives in the LLM, not the vision tower.} SIUO under zoom blur (severity 2), GPT-4o judge: reasoning-trace and conclusion ASR (\%) for the safety LoRA applied to different modules of LLaVA-CoT.}
+  \caption{\textbf{The final safety decision lives in the LLM, not the vision tower.} SIUO under zoom blur (severity 2), GPT-4o judge, $n{=}167$. All four checkpoints are LLaVA-CoT with the same LoRA recipe ($r{=}8$, $\alpha{=}16$); rows differ only in the training \emph{data} (first two) or the \emph{module} the adapter is attached to (last three). Row 1 is the reference safety tune of \cref{sec:defenses:tis}. The corruption-aware rows use a 75\%/25\% zoom-blur(sev 2)/clean copy of the tuning set, so the training corruption matches the evaluation corruption.}
   \label{tab:module}
   \small
-  \begin{tabular}{lcc}
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{llcc}
     \toprule
-    Safety LoRA placement & ASR\textsubscript{reasoning} & ASR\textsubscript{conclusion} \\
+    Tuning data & LoRA placement & HR\textsubscript{R} & HR\textsubscript{C} \\
     \midrule
-    clean-trained, both (reference) & 72.5 & 31.1 \\
-    corruption-trained, both        & 72.5 & 34.7 \\
-    corruption-trained, LLM only    & 67.1 & 31.7 \\
-    corruption-trained, vision only & \textbf{50.3} & 50.9 \\
+    clean (reference)     & LLM only      & 72.5 & 31.1 \\
+    \midrule
+    zoom blur 75\%        & LLM only      & 67.1 & \textbf{31.7} \\
+    zoom blur 75\%        & LLM $+$ vision & 72.5 & 34.7 \\
+    zoom blur 75\%        & vision only   & \textbf{50.3} & 50.9 \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-Can training the safety tune \emph{on corrupted images} restore robustness? We retrain the safety LoRA on a 25/25/25/25 mix of clean/glass/snow/zoom images (the clean-only control reproduces the reference checkpoint's loss to the fourth decimal, 1.5930 vs.\ 1.5929, validating the pipeline). The verdict is split along the reasoning/answer axis: the reasoning trace becomes meaningfully safer (HR\textsubscript{R} $-5.6$) while the final answer does not (HR\textsubscript{C} $+2.4$).
+Can training the safety tune \emph{on corrupted images} restore robustness? Holding the adapter on the LLM and changing only the data, \cref{tab:module} says: partly, and along one axis only. The reasoning trace becomes meaningfully safer (HR\textsubscript{R} $72.5\rightarrow67.1$) while the final answer does not move (HR\textsubscript{C} $31.1\rightarrow31.7$). A second, independently built recipe --- a uniform four-way mix of clean/zoom/snow/glass images rather than this 75/25 zoom-blur split --- reproduces the same split verdict (HR\textsubscript{R} $-5.6$, HR\textsubscript{C} $+2.4$), so the result is a property of corruption-aware tuning rather than of one mixing ratio. Both pipelines are validated by a clean-only control that reproduces the reference checkpoint's training loss to the fourth decimal (1.5930 vs.\ 1.5929).
 
-The module ablation in \cref{tab:module} explains why, and is to our knowledge the first localization of corruption-robust safety within a VLM. Placing the corruption-aware LoRA only on the \emph{vision tower} produces the safest reasoning in the study (ASR\textsubscript{reasoning} 50.3 vs.\ 72.5 for the reference) --- adapting perception to corruption genuinely helps the model \emph{recognize} risk in degraded images --- yet its conclusion ASR is the \emph{worst} (50.9): the safer perception never reaches the final answer. Conversely, the LLM-only variant carries essentially all of the conclusion-level safety (31.7, matching the reference 31.1). The safety \emph{decision} is implemented in the language model; the vision tower only supplies its trigger. This decomposition sharpens the open problem: corruption-aware training fixes the trigger, but the decision pathway from a risk-aware reasoning trace to a refusal is itself the weakest link --- consistent with the reasoning-leakage finding of \cref{sec:results:reasoning}.
+The module ablation in the lower block of \cref{tab:module} explains why, and is to our knowledge the first localization of corruption-robust safety within a VLM. Here the data is held fixed and only the adapter's placement changes. Placing the corruption-aware LoRA only on the \emph{vision tower} produces the safest reasoning in the study (HR\textsubscript{R} 50.3 vs.\ 72.5 for the reference) --- adapting perception to corruption genuinely helps the model \emph{recognize} risk in degraded images --- yet its conclusion harmful rate is the \emph{worst} (50.9): the safer perception never reaches the final answer. Conversely, the LLM-only variant carries essentially all of the conclusion-level safety (31.7, matching the reference 31.1). The safety \emph{decision} is implemented in the language model; the vision tower only supplies its trigger. This decomposition sharpens the open problem: corruption-aware training fixes the trigger, but the decision pathway from a risk-aware reasoning trace to a refusal is itself the weakest link --- consistent with the reasoning-leakage finding of \cref{sec:results:reasoning}.
 
-\subsection{Corruption-aware prompting: cheap and effective}
+\subsection{Safety prompting: cheap, effective, and only partly what we expected}
 \label{sec:defenses:prompt}
 
 \begin{table}[t]

@@ -6,7 +6,7 @@
 
 \begin{table}[t]
   \centering
-  \caption{\textbf{Image corruptions weaken safety.} Final-answer harmful rate HR\textsubscript{C} (\%) on SIUO (167 items, GPT-4o judge); higher = less safe. 16 of 18 model$\times$corruption cells increase (two-sided sign test, $p{=}0.0013$), and every configuration degrades under zoom blur. The two decreases (LlamaV-o1, gray) are not significant under exact McNemar tests on paired per-item verdicts ($p{=}0.56$, $p{=}0.82$).}
+  \caption{\textbf{Image corruptions weaken safety.} Final-answer harmful rate HR\textsubscript{C} (\%) on SIUO (167 items, GPT-4o judge); higher = less safe. 16 of 18 model$\times$corruption cells increase (two-sided sign test, $p{=}0.0013$), and every configuration degrades under zoom blur. The two decreases (LlamaV-o1, gray) are not significant under exact McNemar tests on paired per-item verdicts ($p{=}0.56$, $p{=}0.82$). $\Delta$ is computed on unrounded rates, so it can differ by 0.1 from the difference of the rounded cells shown (on $n{=}167$ one item is 0.6 points).}
   \label{tab:siuo-main}
   \small
   \setlength{\tabcolsep}{4.5pt}
@@ -28,7 +28,7 @@
 
 \begin{table}[t]
   \centering
-  \caption{\textbf{Replication on an independent, 3$\times$-larger benchmark.} Final-answer harmful rate HR\textsubscript{C} (\%) on the HoliSafe safe-image$+$safe-text$\rightarrow$unsafe subset (476 items, same GPT-4o judge). The reasoning-trace metric HR\textsubscript{R} rises for 4 of 5 models; the direction is noisier here than on SIUO's curated hard cases.}
+  \caption{\textbf{Replication on an independent, 3$\times$-larger benchmark.} Final-answer harmful rate HR\textsubscript{C} (\%) on the HoliSafe safe-image$+$safe-text$\rightarrow$unsafe subset (476 items, same GPT-4o judge). The reasoning-trace metric HR\textsubscript{R} rises for 4 of 5 models; the direction is noisier here than on SIUO's curated hard cases. As in \cref{tab:siuo-main}, $\Delta$ is computed on unrounded rates and may differ by 0.1 from the difference of the rounded cells.}
   \label{tab:holisafe}
   \small
   \begin{tabular}{lccc}
@@ -64,11 +64,11 @@ To test whether the safety drop depends on the particular severity used elsewher
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figures/decoupling.pdf}
-  \caption{\textbf{Safety degrades even when capability does not.} Each point is one ImageNet-C corruption applied to the same safety-tuned LLaVA-CoT: $x$ = change in ScienceQA accuracy, $y$ = change in SIUO attack success rate. All ten corruptions raise ASR (sign test $p{=}0.002$) --- including JPEG, frost, and fog, which cost \emph{zero} utility. Safety failure under corruption is not a perception failure.}
+  \caption{\textbf{Safety degrades even when capability does not.} Each point is one ImageNet-C corruption applied to the same safety-tuned LLaVA-CoT: $x$ = change in ScienceQA accuracy, $y$ = change in SIUO conclusion harmful rate HR\textsubscript{C}. All ten corruptions raise HR\textsubscript{C} (sign test $p{=}0.002$) --- including JPEG, frost, and fog, which cost \emph{zero} utility. Safety failure under corruption is not a perception failure.}
   \label{fig:decoupling}
 \end{figure}
 
-If corruption simply blinded the model, safety and utility would fall together. \Cref{fig:decoupling} shows they do not. Across ten corruption types applied to the same safety-tuned model, ScienceQA accuracy moves between $-8.4$ and $+1.6$ points (clean: 90.4\%) while SIUO attack success rises in \emph{all ten} cases, by $+1.3$ to $+8.4$ points (mean $+4.0$, 95\% CI $[2.6,5.4]$ over the ten corruptions; sign test $p{=}0.002$). The two axes are not merely both-nonzero --- they are \emph{uncorrelated}: across the ten corruptions the amount of ASR gained is unrelated to the amount of accuracy lost (Pearson $r{=}{-}0.25$, n.s.), so the safety damage cannot be a downstream symptom of the perceptual damage. The decisive cells are the ones with \emph{no} utility cost: JPEG compression leaves accuracy exactly at baseline yet adds $+4.2$ points of ASR; frost and fog slightly \emph{improve} accuracy while adding $+4.2$ and $+2.4$. Nor is the model reporting that it has gone blind: across the base configurations, responses that explicitly flag the image as unreadable stay at $\le 6\%$ in every condition and at $0.0\%$ for LLaVA-CoT under zoom blur, even as harmful rate climbs --- the model resolves the degraded image with undiminished confidence and complies. Utility robustness and safety robustness are different properties, and measuring the first tells you nothing about the second. This is the paper's central claim, and it has a practical consequence: a deployment that qualifies a VLM by checking accuracy under degraded inputs --- current standard practice --- will certify models whose safety has silently regressed.
+If corruption simply blinded the model, safety and utility would fall together. \Cref{fig:decoupling} shows they do not. Across ten corruption types applied to the same safety-tuned model, ScienceQA accuracy moves between $-8.4$ and $+1.6$ points (clean: 90.4\%) while SIUO harmful rate HR\textsubscript{C} rises in \emph{all ten} cases, by $+1.3$ to $+8.4$ points (mean $+4.0$, 95\% CI $[2.6,5.4]$ over the ten corruptions; sign test $p{=}0.002$). The two axes are not merely both-nonzero --- they are \emph{uncorrelated}: across the ten corruptions the amount of HR\textsubscript{C} gained is unrelated to the amount of accuracy lost (Pearson $r{=}{-}0.25$, n.s.), so the safety damage cannot be a downstream symptom of the perceptual damage. The decisive cells are the ones with \emph{no} utility cost: JPEG compression leaves accuracy exactly at baseline yet adds $+4.2$ points of HR\textsubscript{C}; frost and fog slightly \emph{improve} accuracy while adding $+4.2$ and $+2.4$. Nor is the model reporting that it has gone blind: across the base configurations, responses that explicitly flag the image as unreadable stay at $\le 6\%$ in every condition and at $0.0\%$ for LLaVA-CoT under zoom blur, even as harmful rate climbs --- the model resolves the degraded image with undiminished confidence and complies. Utility robustness and safety robustness are different properties, and measuring the first tells you nothing about the second. This is the paper's central claim, and it has a practical consequence: a deployment that qualifies a VLM by checking accuracy under degraded inputs --- current standard practice --- will certify models whose safety has silently regressed.
 
 \begin{table}[t]
   \centering
@@ -103,7 +103,7 @@ Split apart, the safety-tuned model gives the clean result: under blur its benig
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figures/signed_effect.pdf}
-  \caption{\textbf{Corruption helps safety only when the image \emph{is} the attack.} Signed change in ASR under zoom blur for base LLaVA-CoT across four benchmarks that differ in where the harm signal lives. Blurring an attack destroys it; blurring evidence hides it.}
+  \caption{\textbf{Corruption helps safety only when the image \emph{is} the attack.} Signed change in attack success under zoom blur for base LLaVA-CoT across four benchmarks that differ in where the harm signal lives. Blurring an attack destroys it; blurring evidence hides it. Each benchmark is scored by its own established protocol rather than a single judge --- in particular the HoliSafe bar is the judge-free refusal-based estimate ($+3.8$), which \cref{tab:holisafe} independently reproduces with the GPT-4o judge ($+4.0$); the comparison here is of \emph{signs and magnitudes} across benchmarks, not of one metric's absolute values.}
   \label{fig:signed}
 \end{figure}
 

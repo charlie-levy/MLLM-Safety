@@ -20,7 +20,7 @@ We use ImageNet-C~\cite{hendrycks2019benchmarking} corruption functions applied 
 \paragraph{Benchmarks: locating the harm.}
 We organize safety benchmarks by \emph{where the harm signal lives}, which \cref{sec:results} shows is the variable that determines corruption's effect:
 \begin{itemize}
-  \item \textbf{Image semantics:} SIUO~\cite{siuo2024} (167 items; safe text whose risk emerges from the image), the HoliSafe~\cite{holisafe2025} safe-image$+$safe-text$\rightarrow$unsafe subset (476 items), and VLSBench~\cite{hu2024vlsbench} (risk visible only in the image).
+  \item \textbf{Image semantics:} SIUO~\cite{siuo2024} (167 items; safe text whose risk emerges from the image), the HoliSafe~\cite{holisafe2025} safe-image$+$safe-text$\rightarrow$unsafe subset (476 items), VLSBench~\cite{hu2024vlsbench} (risk visible only in the image), and SPA-VL~\cite{zhang2024spavl}, which supplies harmful multimodal scenes as \emph{preference pairs} and is therefore scored as a net pairwise preference shift rather than a harmful rate; it appears only in \cref{fig:signed}, where the comparison is of signs across benchmarks.
   \item \textbf{Rendered text (image as attack vector):} MM-SafetyBench~\cite{liu2024mmsafetybench} typographic split and FigStep~\cite{gong2023figstep}.
   \item \textbf{Text prompt:} harmful text with paired images from BeaverTails-V~\cite{saferlhfv2025} (the multimodal extension of BeaverTails~\cite{ji2023beavertails}).
   \item \textbf{Utility controls:} ScienceQA~\cite{lu2022scienceqa} and MathVista~\cite{lu2024mathvista} under the same corruptions; over-refusal on XSTest~\cite{rottger2024xstest} safe prompts (250) and the MMSafeAware~\cite{wang2025mmsafeaware} over-safety subset (428 of its 500 benign image--text pairs).

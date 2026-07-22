@@ -2,7 +2,7 @@
 """Camera-ready figures for the WACV draft -> REU_WACV/figures/*.pdf (vector).
 Single-column WACV width ~3.25in; fonts sized for \\linewidth inclusion.
 
-fig 1  decoupling.pdf   scatter of (delta utility, delta ASR) per corruption for the
+fig 1  decoupling.pdf   scatter of (delta utility, delta HR_C) per corruption for the
                         SAME TIS-tuned LLaVA-CoT: safety degrades even when utility
                         doesn't (all 10 points above y=0; 3 at x>=0).
 fig 2  signed_effect.pdf  signed ASR change under zoom blur across benchmarks that
@@ -53,7 +53,7 @@ def fig_decoupling():
     ax.axvline(0, color=INK, lw=0.8)
     ax.set_xlim(-10.5, 3.6); ax.set_ylim(-1.2, 9.6)
     ax.set_xlabel(r"$\Delta$ ScienceQA accuracy (pp)  $\leftarrow$ utility lost")
-    ax.set_ylabel(r"$\Delta$ SIUO ASR (pp)  less safe $\rightarrow$")
+    ax.set_ylabel(r"$\Delta$ SIUO HR$_\mathrm{C}$ (pp)  less safe $\rightarrow$")
     ax.text(2.9, 0.4, "no utility\nloss", fontsize=6.5, color=MUTE, ha="right", va="bottom")
     ax.grid(color=GRID, lw=0.6, zorder=0); ax.set_axisbelow(True)
     ax.spines[["top", "right"]].set_visible(False)
