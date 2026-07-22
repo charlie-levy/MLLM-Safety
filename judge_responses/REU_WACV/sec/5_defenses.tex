@@ -35,24 +35,43 @@ The module ablation in \cref{tab:module} explains why, and is to our knowledge t
 
 \begin{table}[t]
   \centering
-  \caption{\textbf{A corruption-aware system prompt recovers most of the lost safety at zero training cost.} SIUO HR\textsubscript{C} (\%) for LLaVA-CoT; lower is safer. \emph{blur-safe} = generic safety nudge $+$ explicit warning that the image may be degraded. The blur-safe prompt beats the generic prompt in all four conditions and drives every corrupted condition below the undefended \emph{clean} baseline (68.3).}
+  \caption{\textbf{Safety prompting transfers; corruption-awareness does not.} SIUO HR\textsubscript{C} (\%); lower is safer, best prompt per row in bold. \emph{safety} = generic safety nudge; \emph{blur-safe} = the same nudge $+$ an explicit warning that the image may be degraded. Both prompts beat no prompt in all 12 cells, and the generic prompt drives every corrupted condition below that model's own undefended \emph{clean} baseline. But the corruption-aware addition helps only the model it was developed on: it wins 4 of 4 cells on LLaVA-CoT and loses 8 of 8 on the two held-out models.}
   \label{tab:prompting}
   \small
   \begin{tabular}{lccc}
     \toprule
     Condition & no prompt & safety & blur-safe \\
     \midrule
-    clean      & 68.3 & 59.9 & \textbf{52.1} \\
-    zoom blur  & 74.8 & 62.3 & \textbf{53.9} \\
-    snow       & 71.9 & 58.7 & \textbf{50.9} \\
-    glass blur & 71.3 & 61.7 & \textbf{56.9} \\
+    \multicolumn{4}{l}{\emph{LLaVA-CoT} (prompt developed on this model)} \\
+    \quad clean      & 68.3 & 59.9 & \textbf{52.1} \\
+    \quad zoom blur  & 74.8 & 62.3 & \textbf{53.9} \\
+    \quad snow       & 71.9 & 58.7 & \textbf{50.9} \\
+    \quad glass blur & 71.3 & 61.7 & \textbf{56.9} \\
+    \midrule
+    \multicolumn{4}{l}{\emph{Qwen2.5-VL} (held out)} \\
+    \quad clean      & 70.1 & \textbf{49.7} & 56.9 \\
+    \quad zoom blur  & 74.2 & \textbf{60.5} & 62.3 \\
+    \quad snow       & 73.0 & \textbf{56.3} & 60.5 \\
+    \quad glass blur & 73.0 & \textbf{55.7} & 59.3 \\
+    \midrule
+    \multicolumn{4}{l}{\emph{R1-Onevision} (held out)} \\
+    \quad clean      & 83.8 & \textbf{71.9} & 73.0 \\
+    \quad zoom blur  & 86.8 & \textbf{71.3} & 81.4 \\
+    \quad snow       & 84.4 & \textbf{69.5} & 79.0 \\
+    \quad glass blur & 85.6 & \textbf{70.7} & 78.4 \\
     \bottomrule
   \end{tabular}
 \end{table}
 
-A system prompt that tells the model to check safety --- and that the image may be corrupted --- requires no training, no data, and no weight access. \Cref{tab:prompting} shows it is the strongest defense in this study: 15--21 points of HR\textsubscript{C} over no defense, a consistent 5--8 points over the corruption-agnostic safety prompt, and corrupted-input safety better than the undefended model achieves on \emph{clean} input. Warning the model that its visual evidence may be unreliable changes how it resolves ambiguity --- precisely the failure mode of \cref{sec:results:harmloc}, where corrupted evidence was resolved as ``unrelated to the image.'' The utility cost is negligible: MathVista moves 53.5$\rightarrow$53.0 and ScienceQA 90.8$\rightarrow$94.0 across the same prompts. The obvious limitation is single-model evidence; extending this table to the remaining models is the highest-value missing experiment in the paper. \TODO{If time permits before submission: run the 3-prompt grid on Qwen2.5-VL and R1-Onevision.}
+A system prompt requires no training, no data, and no weight access, so it is the cheapest defense available. We evaluate two --- a generic safety nudge, and the same nudge plus an explicit warning that the image may be degraded --- on three models, having developed both on LLaVA-CoT alone. \Cref{tab:prompting} separates a result that transfers from one that does not.
+
+What transfers is \emph{generic} safety prompting. It lowers HR\textsubscript{C} in all twelve cells, by 8.4 to 20.4 points, and in every model it drives all three corrupted conditions below that model's own undefended clean baseline: a blurred, safety-prompted Qwen2.5-VL (60.5) is safer than a clean, unprompted one (70.1). A deployment that can afford one line of system prompt can buy back more safety than corruption takes away.
+
+What does not transfer is the corruption-aware component --- the part we thought was the contribution. On LLaVA-CoT, warning the model about degradation beat the generic prompt in all four conditions by 4.8--8.4 points. On the two held-out models it \emph{loses} in all eight, by 1.8--7.2 points on Qwen2.5-VL and 1.2--10.2 on R1-Onevision, and the penalty is largest exactly where it was supposed to help most (R1-Onevision under zoom blur, $+10.2$). Twelve cells split 4--8 against the intervention is not a defense; it is a model-specific idiosyncrasy that a single-model evaluation would have published as a general finding.
+
+We offer a mechanism, and flag it as a hypothesis this experiment does not test. Telling a model its image may be unreliable is an invitation to discount the image. On SIUO the harm signal \emph{lives} in the image, so discounting it is precisely the \cref{sec:results:harmloc} failure mode --- resolving degraded evidence as ``unrelated to the image'' --- now induced deliberately by the prompt rather than by the corruption. On LLaVA-CoT that invitation apparently resolves toward caution; on the two reasoning models it appears to resolve toward dismissal. If that reading is right, the corruption-aware framing is not merely inert on unseen models but actively counterproductive on any benchmark whose harm is visual, and the right prompt-side intervention would tell the model to become \emph{more} careful about a degraded image rather than less confident in it. The utility cost of prompting is negligible throughout: on LLaVA-CoT, MathVista moves 53.5$\rightarrow$53.0 and ScienceQA 90.8$\rightarrow$94.0 across the same prompts.
 
 \subsection{Limitations}
 \label{sec:defenses:limits}
 
-Our headline metrics flow through a GPT-4o judge; we mitigate with paired statistics, a clean-image Llama-Guard judge for FigStep, and a judge-free refusal-based estimate that recovers the same effect (\cref{sec:setup}), but judge bias cannot be fully excluded. SIUO is small ($n{=}167$); we therefore never interpret single cells, and rest the universality claim on the consistency across models and corruptions (sign test), the dose--response trends, and the independent $n{=}476$ HoliSafe replication (\cref{tab:holisafe}). The corruption-aware fine-tuning result is one recipe (LoRA $r{=}8$, one mixing ratio) on one model, and the prompting defense is evaluated on one model. Finally, all evaluations use synthetic ImageNet-C corruptions; real captured degradations (motion at capture time, sensor noise, compression stacks) are correlated differently and deserve a dedicated benchmark.
+Our headline metrics flow through a GPT-4o judge; we mitigate with paired statistics, a clean-image Llama-Guard judge for FigStep, and a judge-free refusal-based estimate that recovers the same effect (\cref{sec:setup}), but judge bias cannot be fully excluded. SIUO is small ($n{=}167$); we therefore never interpret single cells, and rest the universality claim on the consistency across models and corruptions (sign test), the dose--response trends, and the independent $n{=}476$ HoliSafe replication (\cref{tab:holisafe}). The corruption-aware fine-tuning result is one recipe (LoRA $r{=}8$, one mixing ratio) on one model, and we expect it to be no more transferable than the prompting result turned out to be (\cref{tab:prompting}) --- a held-out test of it is the most obvious next experiment. The prompting grid covers three models and one benchmark; because the mechanism we propose for the corruption-aware prompt's failure turns on SIUO's harm being visual, that explanation predicts the penalty should shrink or reverse on a rendered-text benchmark, which we have not tested. Finally, all evaluations use synthetic ImageNet-C corruptions; real captured degradations (motion at capture time, sensor noise, compression stacks) are correlated differently and deserve a dedicated benchmark.

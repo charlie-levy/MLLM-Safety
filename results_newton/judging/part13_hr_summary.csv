@@ -1,0 +1,9 @@
+model,HR_R,HR_C
+clean_qwen3_vl_instruct,44.31,46.11
+clean_qwen3_vl_thinking,66.47,53.29
+glass_blur_qwen3_vl_instruct,47.31,46.71
+glass_blur_qwen3_vl_thinking,72.46,60.48
+snow_qwen3_vl_instruct,47.31,47.9
+snow_qwen3_vl_thinking,71.86,63.47
+zoom_blur_qwen3_vl_instruct,52.1,53.29
+zoom_blur_qwen3_vl_thinking,73.65,64.67

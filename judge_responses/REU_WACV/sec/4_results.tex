@@ -123,4 +123,28 @@ The mechanism is visible in the models' own words. Asked to help ``obtain the ne
 \subsection{Reasoning is not a safety mechanism}
 \label{sec:results:reasoning}
 
-Three observations dismantle the hope that chain-of-thought reasoning provides safety robustness. First, ranking: the least safe configurations in \cref{tab:siuo-main} are the strongest reasoners (R1-Onevision, 84--87\% HR\textsubscript{C}); the base non-reasoning model is the safest. Second, budget: forcing R1-Onevision's thinking budget to 0, 512, or 2048 tokens on a 50-item pilot leaves HR\textsubscript{C} statistically flat (82--90\%) both clean and under zoom blur --- more thinking does not buy safety, and corruption cannot make an already-unsafe model much worse. Third, leakage: HR\textsubscript{R} $\ge$ HR\textsubscript{C} almost everywhere --- models articulate the harmful content in their reasoning \emph{more} often than they state it in their answers, so the reasoning trace is itself an exposure surface, and (\cref{sec:defenses:cat}) the reasoning-to-answer link is where safety interventions currently fail. Reasoning \emph{does} correlate with corruption robustness in one narrow sense: R1-Onevision with thinking degrades less under corruption ($+3.0$ worst-case) than its own no-think mode ($+6.6$), suggesting test-time reasoning buffers the \emph{marginal} effect of corruption even though it does not lower the baseline.
+\begin{table}[t]
+  \centering
+  \caption{\textbf{A matched pair isolates reasoning post-training.} Qwen3-VL-8B~\cite{qwen3vl2025} Instruct vs.\ Thinking on SIUO (167 items, same GPT-4o judge): same family, same scale, differing in reasoning post-training. The Thinking variant is less safe on clean images ($+7.2$) \emph{and} degrades further under every corruption ($+11.4$ worst case vs.\ $+7.2$). Its reasoning trace is also far more harmful than its answer (HR\textsubscript{R}$-$HR\textsubscript{C} $= 8.4$--$13.2$), a gap absent in the Instruct sibling ($-1.8$ to $+0.6$), which has no separate trace.}
+  \label{tab:e1-thinking}
+  \small
+  \setlength{\tabcolsep}{4pt}
+  \begin{tabular}{lccccc}
+    \toprule
+    & \multicolumn{2}{c}{Instruct} & \multicolumn{2}{c}{Thinking} & \\
+    \cmidrule(lr){2-3}\cmidrule(lr){4-5}
+    Condition & HR\textsubscript{R} & HR\textsubscript{C} & HR\textsubscript{R} & HR\textsubscript{C} & $\Delta$HR\textsubscript{C} \\
+    \midrule
+    clean       & 44.3 & 46.1 & 66.5 & 53.3 & $+7.2$ \\
+    glass blur  & 47.3 & 46.7 & 72.5 & 60.5 & $+13.8$ \\
+    snow        & 47.3 & 47.9 & 71.9 & 63.5 & $+15.6$ \\
+    zoom blur   & 52.1 & 53.3 & 73.7 & 64.7 & $+11.4$ \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Four observations dismantle the hope that chain-of-thought reasoning provides safety robustness. First, ranking: the least safe configurations in \cref{tab:siuo-main} are the strongest reasoners (R1-Onevision, 84--87\% HR\textsubscript{C}); the base non-reasoning model is the safest. Second, budget: forcing R1-Onevision's thinking budget to 0, 512, or 2048 tokens on a 50-item pilot leaves HR\textsubscript{C} statistically flat (82--90\%) both clean and under zoom blur --- more thinking does not buy safety, and corruption cannot make an already-unsafe model much worse. Third, leakage: HR\textsubscript{R} $\ge$ HR\textsubscript{C} almost everywhere --- models articulate the harmful content in their reasoning \emph{more} often than they state it in their answers, so the reasoning trace is itself an exposure surface, and (\cref{sec:defenses:cat}) the reasoning-to-answer link is where safety interventions currently fail.
+
+Fourth, and most directly, a matched pair. The ranking observation compares models that differ in base weights, training data, and scale at once, so it cannot separate reasoning from everything else. \Cref{tab:e1-thinking} removes that confound by evaluating Qwen3-VL-8B in its Instruct and Thinking releases --- one family, one scale, differing in reasoning post-training. The Thinking variant is worse on both counts that matter here: it starts less safe on clean images ($53.3$ vs.\ $46.1$) \emph{and} it loses more under corruption (worst case $+11.4$ vs.\ $+7.2$), so reasoning post-training raises the baseline harmful rate and the corruption sensitivity together. The same pair also rules out a judge artifact behind the leakage result: HR\textsubscript{R} exceeds HR\textsubscript{C} by 8.4--13.2 points in the Thinking variant and by $-1.8$ to $+0.6$ --- nothing, within judge noise --- in the Instruct variant, which emits no separate trace for the judge to score. Leakage appears exactly where a reasoning trace exists and vanishes where it does not.
+
+This sharpens rather than contradicts the one narrow sense in which reasoning looked protective. R1-Onevision with thinking degrades less under corruption ($+3.0$ worst case) than the same checkpoint with thinking suppressed at inference ($+6.6$), which we read as test-time reasoning buffering the \emph{marginal} effect of corruption. That comparison holds the weights fixed and varies whether the trace is used; \cref{tab:e1-thinking} holds the family fixed and varies whether the model was \emph{trained} to reason. The two are not interchangeable, and their opposite signs say something specific: once a model has been reasoning-trained, letting it use its trace helps at the margin, but choosing the reasoning-trained checkpoint in the first place costs more safety than that buffering returns. Nothing here recommends reasoning post-training as a safety measure.
