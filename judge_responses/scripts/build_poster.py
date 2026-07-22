@@ -1,28 +1,26 @@
 #!/usr/bin/env python3
-"""build_poster.py — the 48x36 conference poster, built from the paper's numbers.
+"""build_poster.py — the 48x36 conference poster.
 
-WHY A SCRIPT AND NOT POWERPOINT. The previous poster was a PosterPresentations
-template: its numbers were retyped by hand (so they drifted from the paper), its
-figures were screenshots, and half its panels were two lines of text in a box the
-size of a chart. Building it in code means every value below traces to a table in
-the paper or a summary CSV, and a re-run after new results is free.
+STRUCTURE follows the original poster: three columns, sparse, one idea per block.
+Column 1 is all text (problem -> question -> findings -> setup), column 2 carries
+the two evidence charts, column 3 carries the hero image and the fix. Four visual
+panels, not six -- a poster is read standing up, in about two minutes.
 
-STORY (the order a reader walks it, left to right, top to bottom):
-    HOOK    one image: same model, same prompt, blur alone turns REFUSE into COMPLY
-    1  safety breaks before capability      <- the central claim
-    2  it is not one model                  <- 16 of 18 cells, + a 476-item replication
-    3  the harm-location principle          <- explains contradictions in prior work
-    4  reasoning is not a safeguard         <- matched Instruct/Thinking pair
-    5  where the decision lives             <- module ablation
-    6  what actually helps                  <- and what does not transfer
-    TAKEAWAY
+FIGURES are the paper's, in the paper's simple single-chart form:
+  * the flip composite is the paper figure placed directly (figures/flip_2014)
+  * the decoupling scatter and the dose-response curve are redrawn here from the
+    same data as figures/decoupling and figures/dose_response, at poster type size
 
-COLOR. Palette slots come from the dataviz reference palette and were validated
-with its checker (categorical slots 1-3 all-pairs: worst CVD dE 9.2, normal-vision
-24.0; diverging poles blue/red: CVD dE 23.8). The previous poster encoded
-"safer vs less safe" as RED vs GREEN, which is the textbook red-green CVD failure;
-that comparison is now blue vs red, and every bar is also direct-labelled so the
-encoding never rests on hue alone.
+METRIC NAME. The poster says ASR throughout, matching the original poster and the
+talk. The paper calls the same quantity HR_C (and HR_R for the reasoning trace),
+because it scores the trace and the answer separately; where that distinction
+matters here it is spelled out in words ("reasoning trace" / "final answer")
+rather than with a subscript.
+
+COLOR from the dataviz reference palette, validated with its checker: categorical
+slots 1-3 pass all-pairs (worst CVD dE 9.2, normal-vision 24.0) and the diverging
+poles blue/red pass at CVD dE 23.8. The original poster's safer-vs-less-safe
+red/green pair is the textbook red-green CVD failure and is not used.
 
     python build_poster.py            # -> Poster_CharlesLevy_v2.pdf (+ .png proof)
 """
@@ -37,21 +35,18 @@ import matplotlib.image as mpimg
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.normpath(os.path.join(HERE, ".."))
 FIGS = os.path.join(ROOT, "REU_WACV", "figures")
+LOGO = os.path.join(ROOT, "poster_assets")
 OUT = os.path.join(ROOT, "Poster_CharlesLevy_v2")
 
-W, H = 48.0, 36.0                      # inches
+W, H = 48.0, 36.0
 
-# ---- design tokens ---------------------------------------------------------
-GOLD    = "#FFC904"     # UCF brand, headers only -- never a data mark
+GOLD    = "#FFC904"
 INK     = "#111111"
 MUTED   = "#5A5A57"
-PANEL   = "#F4F4F1"
 RULE    = "#DDDCD6"
-BLUE    = "#2a78d6"     # categorical slot 1
-ORANGE  = "#eb6834"     # categorical slot 2
-AQUA    = "#1baf7a"     # categorical slot 3
-RED     = "#d03b3b"     # diverging pole: less safe
-NEUTRAL = "#9AA0A6"     # baseline / no-treatment series
+BLUE    = "#2a78d6"
+ORANGE  = "#eb6834"
+RED     = "#d03b3b"
 
 plt.rcParams.update({
     "font.family": ["Helvetica Neue", "Helvetica", "Arial", "DejaVu Sans"],
@@ -61,8 +56,6 @@ plt.rcParams.update({
 })
 
 FS_TITLE, FS_AUTH, FS_HEAD = 82, 40, 37
-FS_BODY, FS_SMALL, FS_TICK = 27, 22, 22
-FS_TAKE = 26
 
 fig = plt.figure(figsize=(W, H), dpi=100)
 fig.patch.set_facecolor("white")
@@ -70,41 +63,44 @@ fig.patch.set_facecolor("white")
 
 def X(x): return x / W
 def Y(y): return y / H
-def ax_at(x, y, w, h, **kw):
-    """axes from inches, measuring y from the TOP of the poster."""
-    a = fig.add_axes([X(x), Y(H - y - h), X(w), Y(h)], **kw)
+
+
+def ax_at(x, y, w, h):
+    """Axes placed in inches, y measured from the TOP of the poster."""
+    a = fig.add_axes([X(x), Y(H - y - h), X(w), Y(h)])
     a.set_facecolor("none")
     a.set_zorder(6)          # must beat the panel boxes appended to fig.patches
     return a
 
 
-def box(x, y, w, h, fc=PANEL, ec=RULE, lw=1.6, r=0.10):
+def box(x, y, w, h, fc="white", ec=RULE, lw=1.6, r=0.10):
     fig.patches.append(FancyBboxPatch(
         (X(x), Y(H - y - h)), X(w), Y(h),
         boxstyle="round,pad=0,rounding_size=%f" % (r / W),
         fc=fc, ec=ec, lw=lw, transform=fig.transFigure, zorder=1))
 
 
-def text(x, y, s, size=FS_BODY, weight="normal", color=INK,
-         ha="left", va="top", style="normal", **kw):
-    return fig.text(X(x), Y(H - y), s, fontsize=size, fontweight=weight,
-                    color=color, ha=ha, va=va, style=style, zorder=5, **kw)
+def text(x, y, s, size=27, weight="normal", color=INK, ha="left", va="top",
+         style="normal", **kw):
+    return fig.text(X(x), Y(H - y), s, fontsize=size, fontweight=weight, color=color,
+                    ha=ha, va=va, style=style, zorder=5, **kw)
 
 
-def header(x, y, w, num, title, h=1.02):
-    """Gold section header bar with a numbered badge."""
+def header(x, y, w, title, num=None, h=1.02):
     fig.patches.append(Rectangle((X(x), Y(H - y - h)), X(w), Y(h),
                                  fc=GOLD, ec="none", transform=fig.transFigure, zorder=2))
-    fig.patches.append(Rectangle((X(x), Y(H - y - h)), X(0.86), Y(h),
-                                 fc=INK, ec="none", transform=fig.transFigure, zorder=3))
-    fig.text(X(x + 0.43), Y(H - y - h / 2), str(num), fontsize=FS_HEAD, fontweight="bold",
-             color=GOLD, ha="center", va="center", zorder=4)
-    fig.text(X(x + 1.15), Y(H - y - h / 2), title, fontsize=FS_HEAD, fontweight="bold",
+    tx = x + 0.55
+    if num is not None:
+        fig.patches.append(Rectangle((X(x), Y(H - y - h)), X(0.86), Y(h),
+                                     fc=INK, ec="none", transform=fig.transFigure, zorder=3))
+        fig.text(X(x + 0.43), Y(H - y - h / 2), str(num), fontsize=FS_HEAD,
+                 fontweight="bold", color=GOLD, ha="center", va="center", zorder=4)
+        tx = x + 1.15
+    fig.text(X(tx), Y(H - y - h / 2), title, fontsize=FS_HEAD, fontweight="bold",
              color=INK, ha="left", va="center", zorder=4)
 
 
-def takeaway(x, y, w, s, size=FS_TAKE):
-    """One-sentence 'what you should remember' strip under a panel."""
+def takeaway(x, y, w, s, size=26):
     h = 0.92
     fig.patches.append(Rectangle((X(x), Y(H - y - h)), X(w), Y(h),
                                  fc="#FFF6D6", ec="none", transform=fig.transFigure, zorder=2))
@@ -114,23 +110,33 @@ def takeaway(x, y, w, s, size=FS_TAKE):
              color=INK, ha="left", va="center", zorder=4)
 
 
-def clean_axes(a, grid_axis="both"):
+def place(path, x, y, w, h):
+    """Drop an image into a box, preserving aspect ratio, centred."""
+    img = mpimg.imread(path)
+    ar = img.shape[1] / img.shape[0]
+    dw, dh = (h * ar, h) if (w / h) > ar else (w, w / ar)
+    a = ax_at(x + (w - dw) / 2, y + (h - dh) / 2, dw, dh)
+    a.imshow(img)
+    a.axis("off")
+
+
+def clean_axes(a, grid_axis="both", tick=23):
     a.grid(color=RULE, lw=1.1, axis=grid_axis, zorder=0)
     a.set_axisbelow(True)
     a.spines[["top", "right"]].set_visible(False)
-    a.tick_params(labelsize=FS_TICK, length=4, width=1.2)
+    a.tick_params(labelsize=tick, length=5, width=1.3)
 
 
 # =============================== LAYOUT =====================================
-M, GAP = 1.1, 0.55
+M = 1.1
 COLW = (W - 2 * M - 2 * 0.6) / 3.0
 CX = [M, M + COLW + 0.6, M + 2 * (COLW + 0.6)]
 
 y_title, h_title = 0.70, 4.80
-y_hook = y_title + h_title + 0.45;  h_hook = 8.30
-y_b3   = y_hook + h_hook + 0.50;    h_b3   = 8.30
-y_b4   = y_b3 + h_b3 + 0.50;        h_b4   = 8.30
-y_ban  = y_b4 + h_b4 + 0.5;         h_ban  = 1.85
+y_top = y_title + h_title + 0.50          # 6.00
+PANEL_H = 12.40
+y_row2 = y_top + PANEL_H + 0.50           # 18.90
+y_ban, h_ban = 31.90, 1.85
 
 # ------------------------------- TITLE --------------------------------------
 # Follows the original poster's header: a white field with a CENTRED gold title
@@ -150,280 +156,191 @@ text(TBX + TBW / 2, y_title + 4.32,
 
 # Logos are alpha-keyed (outer white flood-filled to transparent) so they sit on
 # any background without a white card around them.
-LOGO = os.path.join(os.path.dirname(HERE), "poster_assets")
 for fn, lx, ly, lw_, lh in [("ucf.png", 1.3,   y_title + 1.28, 8.4, 2.35),
                             ("bu.png",  39.0,  y_title + 0.42, 5.6, 2.00),
                             ("nsf.png", 40.55, y_title + 2.62, 2.5, 2.05)]:
-    pth = os.path.join(LOGO, fn)
-    if os.path.exists(pth):
-        a = ax_at(lx, ly, lw_, lh)
-        a.imshow(mpimg.imread(pth)); a.axis("off")
+    p = os.path.join(LOGO, fn)
+    if os.path.exists(p):
+        place(p, lx, ly, lw_, lh)
 
-# ================================ HOOK ======================================
-hx = [M, M + 13.0 + 0.45, M + 13.0 + 0.45 + 18.6 + 0.45]
-hw = [13.0, 18.6, 13.3]
+# ========================= COLUMN 1 — the argument in words ==================
+cx = CX[0]
 
-# --- hook left: problem + question + setup
-box(hx[0], y_hook, hw[0], h_hook, fc="white", ec=RULE)
-text(hx[0] + 0.55, y_hook + 0.75, "THE PROBLEM", size=30, weight="bold", color=MUTED)
-text(hx[0] + 0.55, y_hook + 1.62,
-     "Safety alignment is tested on\n"
-     "$\\bf{clean}$ images — and deployed on\n"
-     "blurry, noisy, compressed ones.", size=FS_BODY)
-fig.patches.append(Rectangle((X(hx[0] + 0.55), Y(H - y_hook - 5.42)), X(hw[0] - 1.1), Y(2.06),
-                             fc=INK, ec="none", transform=fig.transFigure, zorder=2))
-text(hx[0] + 0.95, y_hook + 3.78, "THE QUESTION", size=21, weight="bold", color=GOLD)
-text(hx[0] + 0.95, y_hook + 4.58, "Does safety survive ordinary\nimage corruption?",
-     size=30, weight="bold", color="white", style="italic")
-text(hx[0] + 0.55, y_hook + 5.78, "HOW WE TEST IT", size=30, weight="bold", color=MUTED)
+header(cx, y_top, COLW, "THE PROBLEM")
+box(cx, y_top + 1.02, COLW, 3.30)
+text(cx + 0.55, y_top + 1.85,
+     "Safety alignment is tested on\n$\\bf{clean}$ images — and deployed on\n"
+     "blurry, noisy, compressed ones.", size=28)
+
+yq = y_top + 4.75
+box(cx, yq, COLW, 2.65, fc=INK, ec="none")
+text(cx + 0.70, yq + 0.72, "THE QUESTION", size=22, weight="bold", color=GOLD)
+text(cx + 0.70, yq + 1.55, "Does safety survive ordinary\nimage corruption?",
+     size=31, weight="bold", color="white", style="italic")
+
+yf = yq + 3.05
+header(cx, yf, COLW, "WHAT WE FOUND")
+box(cx, yf + 1.02, COLW, 9.85)
+FINDS = [("Safety breaks before capability.",
+          "Corruptions that cost $\\bf{zero}$ accuracy\nstill raise ASR. 16 of 18 cells\nworse, across 6 models."),
+         ("It breaks at the mildest setting.",
+          "Severity 1 — nearly invisible —\nalready does most of the damage."),
+         ("Reasoning is not a safeguard.",
+          "Same family, same scale: the\nreasoning model starts less safe\n$\\it{and}$ degrades further."),
+         ("Direction follows where harm lives.",
+          "Blur the $\\it{attack}$ $\\rightarrow$ safer ($-11.3$).\nBlur the $\\it{evidence}$ $\\rightarrow$ less safe ($+7.0$).")]
+for i, (head_, body_) in enumerate(FINDS):
+    yy = yf + 1.85 + i * 2.42
+    fig.patches.append(plt.Circle((X(cx + 0.85), Y(H - yy - 0.14)), X(0.30),
+                                  fc=GOLD, ec="none", transform=fig.transFigure, zorder=3))
+    fig.text(X(cx + 0.85), Y(H - yy - 0.14), str(i + 1), fontsize=25, fontweight="bold",
+             ha="center", va="center", zorder=4)
+    text(cx + 1.45, yy - 0.14, head_, size=26, weight="bold")
+    text(cx + 1.45, yy + 0.70, body_, size=23, color=MUTED)
+
+yh = yf + 11.10
+header(cx, yh, COLW, "HOW WE TEST IT")
+box(cx, yh + 1.02, COLW, 4.15)
 for i, (k, v) in enumerate([("6", "open VLMs, 8 configurations"),
                             ("10", "ImageNet-C corruptions × severities"),
-                            ("7", "safety benchmarks + 2 utility controls"),
-                            ("GPT-4o", "judges reasoning and answer separately")]):
-    yy = y_hook + 6.35 + i * 0.50
-    text(hx[0] + 0.62, yy, k, size=25, weight="bold", color=ORANGE)
-    text(hx[0] + 2.55, yy, v, size=24)
+                            ("7", "safety benchmarks, 2 utility controls"),
+                            ("GPT-4o", "judges every response")]):
+    yy = yh + 1.85 + i * 0.80
+    text(cx + 0.62, yy, k, size=27, weight="bold", color=ORANGE)
+    text(cx + 3.05, yy, v, size=25)
 
-# --- hook centre: THE FLIP (hero)
-box(hx[1], y_hook, hw[1], h_hook, fc="white", ec=INK, lw=2.6)
-text(hx[1] + hw[1] / 2, y_hook + 0.72,
-     "Blur alone turns a refusal into compliance", size=33, weight="bold", ha="center")
-flip = os.path.join(FIGS, "flip_2014.png")
-if os.path.exists(flip):
-    a = ax_at(hx[1] + 0.35, y_hook + 1.05, hw[1] - 0.7, h_hook - 2.25)
-    a.imshow(mpimg.imread(flip)); a.axis("off")
-text(hx[1] + hw[1] / 2, y_hook + h_hook - 0.72,
-     "Same model. Same prompt. Only the image changed.",
-     size=26, weight="bold", ha="center", va="center", color=RED)
+# ================== COLUMN 2 — the two evidence charts ======================
+cx = CX[1]
 
-# --- hook right: what we found
-box(hx[2], y_hook, hw[2], h_hook, fc="white", ec=RULE)
-text(hx[2] + 0.55, y_hook + 0.75, "WHAT WE FOUND", size=30, weight="bold", color=MUTED)
-finds = [("Safety breaks before capability.",
-          "Corruptions with $\\bf{zero}$ accuracy cost\nstill raise harmful rate."),
-         ("Direction depends on where harm lives.",
-          "Blur the $\\it{attack}$ $\\rightarrow$ safer ($-11.3$).\nBlur the $\\it{evidence}$ $\\rightarrow$ less safe ($+7.0$)."),
-         ("Reasoning is not a safeguard.",
-          "Reasoning-trained models start less\nsafe and degrade further."),
-         ("Prompting helps — but not our part.",
-          "A generic safety prompt transfers;\ncorruption-awareness does not.")]
-for i, (a_, b_) in enumerate(finds):
-    yy = y_hook + 1.50 + i * 1.78
-    fig.patches.append(plt.Circle((X(hx[2] + 0.82), Y(H - yy - 0.16)), X(0.30),
-                                  fc=GOLD, ec="none", transform=fig.transFigure, zorder=3))
-    fig.text(X(hx[2] + 0.82), Y(H - yy - 0.16), str(i + 1), fontsize=25, fontweight="bold",
-             ha="center", va="center", zorder=4)
-    text(hx[2] + 1.42, yy - 0.12, a_, size=25, weight="bold")
-    text(hx[2] + 1.42, yy + (0.72 if "\n" not in a_ else 1.30), b_, size=22, color=MUTED)
-
-# ============================ PANEL 1: DECOUPLING ============================
-header(CX[0], y_b3, COLW, 1, "SAFETY BREAKS BEFORE CAPABILITY")
-box(CX[0], y_b3 + 1.02, COLW, h_b3 - 1.02, fc="white")
+# --- 1. decoupling. Same ten points as REU_WACV/figures/decoupling.
+header(cx, y_top, COLW, "SAFETY BREAKS BEFORE CAPABILITY", num=1)
+box(cx, y_top + 1.02, COLW, PANEL_H - 1.02)
 DEC = [("glass blur", -8.4, 5.4), ("defocus", -6.8, 3.6), ("motion blur", -4.8, 1.3),
        ("zoom blur", -4.0, 8.4), ("contrast", -3.6, 4.2), ("snow", -2.0, 4.2),
        ("elastic", -1.6, 1.9), ("JPEG", 0.0, 4.2), ("frost", 0.8, 4.2), ("fog", 1.6, 2.4)]
-NUDGE = {"JPEG": (-0.55, -0.30), "frost": (0.18, 0.40), "fog": (0.15, 0.34),
-         "snow": (0.18, 0.30), "contrast": (0.18, 0.30), "elastic": (0.18, 0.30),
-         "zoom blur": (0.22, 0.22), "glass blur": (0.22, 0.24),
-         "defocus": (0.22, 0.30), "motion blur": (0.22, 0.30)}
-a = ax_at(CX[0] + 1.55, y_b3 + 1.75, COLW - 2.5, h_b3 - 4.15)
-a.axhspan(0, 10, xmin=(0 + 9.6) / 12.4, xmax=1.0, color="#FFF1F1", zorder=0)
+NUDGE = {"JPEG": (-0.62, -0.28), "frost": (0.30, 0.42), "fog": (0.30, 0.30),
+         "snow": (0.30, 0.34), "contrast": (0.30, 0.34), "elastic": (0.30, 0.34),
+         "zoom blur": (0.30, 0.30), "glass blur": (0.30, 0.30),
+         "defocus": (0.30, 0.34), "motion blur": (0.30, 0.34)}
+a = ax_at(cx + 2.35, y_top + 2.35, COLW - 3.4, PANEL_H - 5.05)
+a.axhspan(0, 10, xmin=(0 + 9.6) / 12.4, xmax=1.0, color="#FDECEC", zorder=0)
 for n, du, dh in DEC:
     zero = du >= 0
-    a.scatter(du, dh, s=470 if zero else 330, marker="D" if zero else "o",
+    a.scatter(du, dh, s=460 if zero else 330, marker="D" if zero else "o",
               color=RED if zero else BLUE, edgecolor="white", linewidth=2.4, zorder=4)
     dx, dy = NUDGE[n]
-    a.annotate(n, (du, dh), textcoords="offset points",
-               xytext=(dx * 26, dy * 26), fontsize=20,
-               ha="center" if dx == 0 else ("right" if dx < 0 else "left"),
+    a.annotate(n, (du, dh), textcoords="offset points", xytext=(dx * 26, dy * 26),
+               fontsize=21, ha="right" if dx < 0 else "left",
                color=RED if zero else INK, fontweight="bold" if zero else "normal")
-a.axhline(0, color=INK, lw=2.0); a.axvline(0, color=INK, lw=2.0, ls=(0, (5, 4)))
-a.set_xlim(-9.6, 2.8); a.set_ylim(0, 10)
-a.set_xlabel(r"$\Delta$ ScienceQA accuracy (pp)     $\leftarrow$ utility lost", fontsize=25, labelpad=10)
-a.set_ylabel(r"$\Delta$ SIUO harmful rate (pp)" "\n" r"less safe $\rightarrow$", fontsize=25, labelpad=10)
-a.text(1.35, 9.3, "zero utility\ncost", fontsize=21, color=RED, ha="center",
+a.axhline(0, color=INK, lw=2.0)
+a.axvline(0, color=INK, lw=2.0, ls=(0, (5, 4)))
+a.set_xlim(-9.6, 2.8)
+a.set_ylim(0, 10)
+a.set_xlabel("Δ ScienceQA accuracy (pp)      ← utility lost", fontsize=26, labelpad=10)
+a.set_ylabel("Δ SIUO ASR (pp)\nless safe →", fontsize=26, labelpad=10)
+a.text(1.6, 9.4, "zero utility\ncost", fontsize=22, color=RED, ha="center",
        va="top", fontweight="bold")
 clean_axes(a)
-a.legend(handles=[Line2D([], [], marker="o", ls="", ms=17, color=BLUE, label="costs accuracy"),
-                  Line2D([], [], marker="D", ls="", ms=17, color=RED, label="no accuracy cost")],
-         fontsize=21, loc="lower left", frameon=False, handletextpad=0.4)
-takeaway(CX[0] + 0.35, y_b3 + h_b3 - 1.30, COLW - 0.7,
-         "All 10 corruptions weaken safety.\nJPEG, frost and fog cost no accuracy at all.", size=24)
+a.legend(handles=[Line2D([], [], marker="o", ls="", ms=18, color=BLUE, label="costs accuracy"),
+                  Line2D([], [], marker="D", ls="", ms=18, color=RED, label="no accuracy cost")],
+         fontsize=22, loc="lower left", frameon=False, handletextpad=0.4)
+takeaway(cx + 0.35, y_top + PANEL_H - 1.28, COLW - 0.7,
+         "All 10 corruptions weaken safety. JPEG, frost\nand fog cost no accuracy at all.", size=25)
 
-# ========================= PANEL 2: NOT ONE MODEL ===========================
-header(CX[1], y_b3, COLW, 2, "IT IS NOT ONE MODEL")
-box(CX[1], y_b3 + 1.02, COLW, h_b3 - 1.02, fc="white")
-T1 = [("Llama-3.2-V (base)", 60.5, 61.1, 64.7, 69.5),
-      ("LLaVA-CoT",          68.3, 71.3, 71.9, 74.8),
-      ("Qwen2.5-VL",         70.1, 73.0, 73.0, 74.2),
-      ("LlamaV-o1",          83.2, 80.8, 82.0, 86.8),
-      ("R1-Onevision",       83.8, 85.6, 84.4, 86.8),
-      ("R1-OV (no-think)",   83.8, 90.4, 89.8, 88.6)]
-tx, ty, tw = CX[1] + 0.55, y_b3 + 1.45, COLW - 1.1
-colx = [tx + 5.55, tx + 7.90, tx + 10.25, tx + 12.60]
-for j, c in enumerate(["clean", "glass", "snow", "zoom"]):
-    text(colx[j], ty + 0.30, c, size=23, weight="bold", ha="center", va="center", color=MUTED)
-text(tx, ty + 0.30, "SIUO harmful rate (%)", size=23, weight="bold", va="center", color=MUTED)
-nworse = 0
-for i, (name, cl, gl, sn, zm) in enumerate(T1):
-    ry = ty + 0.82 + i * 0.74
-    if i % 2 == 0:
-        fig.patches.append(Rectangle((X(tx - 0.18), Y(H - ry - 0.42)), X(tw), Y(0.80),
-                                     fc="#FAFAF8", ec="none", transform=fig.transFigure, zorder=1))
-    text(tx, ry, name, size=24, va="center")
-    text(colx[0], ry, "%.1f" % cl, size=25, ha="center", va="center", weight="bold")
-    for j, v in enumerate([gl, sn, zm]):
-        worse = v > cl
-        nworse += worse
-        fig.patches.append(Rectangle((X(colx[j + 1] - 0.92), Y(H - ry - 0.36)), X(1.84), Y(0.72),
-                                     fc="#FBE3E3" if worse else "#DFEAF8", ec="none",
-                                     transform=fig.transFigure, zorder=2))
-        fig.text(X(colx[j + 1]), Y(H - ry), "%.1f %s" % (v, "▲" if worse else "▼"),
-                 fontsize=24, ha="center", va="center", zorder=4,
-                 color=RED if worse else BLUE, fontweight="bold")
-assert nworse == 16, "expected 16 of 18 worse cells, got %d" % nworse
-text(tx, ty + 5.08, "▲ worse than clean          ▼ better", size=21, color=MUTED)
-
-takeaway(CX[1] + 0.35, y_b3 + h_b3 - 1.30, COLW - 0.7,
-         "16 of 18 model × corruption cells get worse ($p = 0.0013$).\n"
-         "Replicates on HoliSafe — an independent set 3× larger.", size=24)
-
-# ======================= PANEL 3: HARM-LOCATION ==============================
-header(CX[2], y_b3, COLW, 3, "EVEN THE MILDEST BLUR BREAKS IT")
-box(CX[2], y_b3 + 1.02, COLW, h_b3 - 1.02, fc="white")
-SEV = [0, 1, 2, 3, 4, 5]                       # 0 = clean
-HR_R = [68.3, 77.3, 80.8, 79.6, 78.4, 80.8]    # part12_dose_response.csv, LLaVA-CoT
-HR_C = [68.3, 71.3, 73.1, 74.3, 73.7, 70.7]
-a = ax_at(CX[2] + 2.05, y_b3 + 2.22, COLW - 3.0, h_b3 - 5.45)
+# --- 2. dose-response. Same series as REU_WACV/figures/dose_response (LLaVA-CoT).
+header(cx, y_row2, COLW, "EVEN THE MILDEST BLUR BREAKS IT", num=2)
+box(cx, y_row2 + 1.02, COLW, PANEL_H - 1.02)
+SEV = [0, 1, 2, 3, 4, 5]
+ASR_REASON = [68.3, 77.3, 80.8, 79.6, 78.4, 80.8]
+ASR_ANSWER = [68.3, 71.3, 73.1, 74.3, 73.7, 70.7]
+a = ax_at(cx + 2.35, y_row2 + 2.55, COLW - 3.4, PANEL_H - 5.35)
 a.axvspan(-0.42, 0.42, color="#EFEEEA", zorder=0)
-for ys, col, lab in [(HR_R, BLUE, "reasoning (HR$_R$)"), (HR_C, ORANGE, "final answer (HR$_C$)")]:
-    a.plot(SEV, ys, "-o", color=col, lw=3.4, ms=15, markeredgecolor="white",
+for ys, col, lab in [(ASR_REASON, BLUE, "reasoning trace"),
+                     (ASR_ANSWER, ORANGE, "final answer")]:
+    a.plot(SEV, ys, "-o", color=col, lw=3.6, ms=16, markeredgecolor="white",
            markeredgewidth=2.6, label=lab, zorder=4)
 # the whole point: clean -> the WEAKEST setting is most of the damage
 a.annotate("", xy=(1, 77.3), xytext=(0, 68.3),
-           arrowprops=dict(arrowstyle="-|>", lw=3.2, color=RED,
-                           shrinkA=14, shrinkB=14, mutation_scale=32), zorder=5)
-a.text(0.26, 87.0, "$+9.0$ at severity 1", fontsize=21.5, color=RED,
+           arrowprops=dict(arrowstyle="-|>", lw=3.4, color=RED,
+                           shrinkA=15, shrinkB=15, mutation_scale=34), zorder=5)
+a.text(0.30, 87.4, "$+9.0$ at severity 1", fontsize=23, color=RED,
        fontweight="bold", ha="left", va="top")
-a.set_xticks(SEV); a.set_xticklabels(["clean", "1", "2", "3", "4", "5"])
-a.set_xlim(-0.55, 5.35); a.set_ylim(63, 88)
-a.set_xlabel("zoom-blur severity", fontsize=25, labelpad=10)
-a.set_ylabel("SIUO harmful rate (%)", fontsize=24, labelpad=8)
-a.legend(fontsize=21, frameon=False, ncol=2, handletextpad=0.4, columnspacing=1.6,
+a.set_xticks(SEV)
+a.set_xticklabels(["clean", "1", "2", "3", "4", "5"])
+a.set_xlim(-0.55, 5.35)
+a.set_ylim(63, 89)
+a.set_xlabel("zoom-blur severity", fontsize=26, labelpad=10)
+a.set_ylabel("SIUO ASR (%)", fontsize=26, labelpad=10)
+a.legend(fontsize=23, frameon=False, ncol=2, handletextpad=0.4, columnspacing=2.0,
          loc="lower center", bbox_to_anchor=(0.5, 1.01), borderaxespad=0)
 clean_axes(a)
-text(CX[2] + 0.55, y_b3 + h_b3 - 2.05,
-     "Severity 1 is close to imperceptible, yet it already carries most of the\n"
-     "loss. Severities 2-5 sit on that same plateau rather than climbing.",
-     size=21.5, color=MUTED)
-takeaway(CX[2] + 0.35, y_b3 + h_b3 - 1.30, COLW - 0.7,
-         "There is no safe amount of corruption — the damage is\ndone at the weakest setting we can apply.", size=24)
+takeaway(cx + 0.35, y_row2 + PANEL_H - 1.28, COLW - 0.7,
+         "There is no safe amount of corruption — the\ndamage is done at the weakest setting.", size=25)
 
-# ==================== PANEL 4: REASONING IS NOT A SAFEGUARD ==================
-header(CX[0], y_b4, COLW, 4, "REASONING IS NOT A SAFEGUARD")
-box(CX[0], y_b4 + 1.02, COLW, h_b4 - 1.02, fc="white")
-CONDS = ["clean", "glass\nblur", "snow", "zoom\nblur"]
-INS = [46.1, 46.7, 47.9, 53.3]
-THK = [53.3, 60.5, 63.5, 64.7]
-a = ax_at(CX[0] + 1.75, y_b4 + 2.30, COLW - 2.6, h_b4 - 5.55)
-xs = range(4); bw = 0.36
-a.bar([x - bw / 2 - 0.015 for x in xs], INS, bw, color=BLUE, zorder=3, label="Instruct")
-a.bar([x + bw / 2 + 0.015 for x in xs], THK, bw, color=ORANGE, zorder=3, label="Thinking")
-for x, (i_, t_) in enumerate(zip(INS, THK)):
-    a.text(x - bw / 2, i_ + 1.4, "%.1f" % i_, ha="center", fontsize=20, color=BLUE, fontweight="bold")
-    a.text(x + bw / 2, t_ + 1.4, "%.1f" % t_, ha="center", fontsize=20, color=ORANGE, fontweight="bold")
-a.set_xticks(list(xs)); a.set_xticklabels(CONDS, fontsize=21)
-a.set_ylim(0, 72); a.set_ylabel("SIUO harmful rate (%)", fontsize=23, labelpad=8)
-a.legend(fontsize=22, frameon=False, ncol=2, handletextpad=0.4, columnspacing=2.0,
-         loc="lower center", bbox_to_anchor=(0.5, 1.01), borderaxespad=0)
-clean_axes(a, grid_axis="y")
-text(CX[0] + 0.55, y_b4 + h_b4 - 2.34,
-     "Qwen3-VL-8B — one family, one scale, only reasoning post-training differs.\n"
-     "Thinking starts $+7.2$ less safe and loses $+11.4$ under corruption (vs $+7.2$).",
-     size=21.5, color=MUTED)
-takeaway(CX[0] + 0.35, y_b4 + h_b4 - 1.05, COLW - 0.7,
-         "The reasoning model is worse at baseline $\\it{and}$ degrades more.", size=24)
+# ============= COLUMN 3 — what it looks like, and what to do ================
+cx = CX[2]
 
-# ====================== PANEL 5: WHERE THE DECISION LIVES ====================
-header(CX[1], y_b4, COLW, 5, "WHERE THE DECISION LIVES")
-box(CX[1], y_b4 + 1.02, COLW, h_b4 - 1.02, fc="white")
-MOD = [("clean data\nLLM only", 72.5, 31.1), ("corruption-aware\nLLM only", 67.1, 31.7),
-       ("corruption-aware\nLLM + vision", 72.5, 34.7), ("corruption-aware\nvision only", 50.3, 50.9)]
-a = ax_at(CX[1] + 1.75, y_b4 + 2.30, COLW - 2.6, h_b4 - 5.55)
-xs = range(4); bw = 0.36
-a.bar([x - bw / 2 - 0.015 for x in xs], [m[1] for m in MOD], bw, color=BLUE, zorder=3,
-      label="reasoning (HR$_R$)")
-a.bar([x + bw / 2 + 0.015 for x in xs], [m[2] for m in MOD], bw, color=ORANGE, zorder=3,
-      label="final answer (HR$_C$)")
-for x, m in enumerate(MOD):
-    a.text(x - bw / 2, m[1] + 1.5, "%.1f" % m[1], ha="center", fontsize=20, color=BLUE, fontweight="bold")
-    a.text(x + bw / 2, m[2] + 1.5, "%.1f" % m[2], ha="center", fontsize=20, color=ORANGE, fontweight="bold")
-a.set_xticks(list(xs)); a.set_xticklabels([m[0] for m in MOD], fontsize=18.5)
-a.set_ylim(0, 80); a.set_ylabel("SIUO harmful rate (%)", fontsize=23, labelpad=8)
-a.legend(fontsize=21, frameon=False, ncol=2, handletextpad=0.4, columnspacing=2.0,
-         loc="lower center", bbox_to_anchor=(0.5, 1.01), borderaxespad=0)
-clean_axes(a, grid_axis="y")
-text(CX[1] + 0.55, y_b4 + h_b4 - 2.34,
-     "Adapting the $\\bf{vision\\ tower}$ gives the safest reasoning in the study (50.3)\n"
-     "— and the $\\bf{worst}$ answers (50.9). The decision is implemented in the LLM.",
-     size=21.5, color=MUTED)
-takeaway(CX[1] + 0.35, y_b4 + h_b4 - 1.05, COLW - 0.7,
-         "Safer perception never reaches the answer.", size=24)
+# --- 3. the hero: the paper's flip composite, placed as-is
+header(cx, y_top, COLW, "WHAT IT LOOKS LIKE", num=3)
+box(cx, y_top + 1.02, COLW, PANEL_H - 1.02)
+flip = os.path.join(FIGS, "flip_2014.png")
+if os.path.exists(flip):
+    place(flip, cx + 0.45, y_top + 1.35, COLW - 0.9, PANEL_H - 3.85)
+text(cx + COLW / 2, y_top + PANEL_H - 2.05,
+     "Same model. Same prompt. Only the image changed.",
+     size=26, weight="bold", ha="center", va="center", color=RED)
+takeaway(cx + 0.35, y_top + PANEL_H - 1.28, COLW - 0.7,
+         "Blur alone turns a refusal into compliance.", size=25)
 
-# ======================== PANEL 6: WHAT ACTUALLY HELPS =======================
-header(CX[2], y_b4, COLW, 6, "WHAT ACTUALLY HELPS")
-box(CX[2], y_b4 + 1.02, COLW, h_b4 - 1.02, fc="white")
-PR = [("LLaVA-CoT\n(prompt built here)", 71.6, 60.7, 53.5),
-      ("Qwen2.5-VL\n(held out)",         72.6, 55.6, 59.8),
-      ("R1-Onevision\n(held out)",       85.2, 70.9, 78.0)]
-a = ax_at(CX[2] + 1.75, y_b4 + 2.30, COLW - 2.6, h_b4 - 5.55)
-xs = range(3); bw = 0.25
-for k, (lbl, col) in enumerate([("no prompt", NEUTRAL), ("generic safety", BLUE),
-                                ("+ corruption-aware", ORANGE)]):
-    a.bar([x + (k - 1) * (bw + 0.03) for x in xs], [p[k + 1] for p in PR], bw,
-          color=col, zorder=3, label=lbl)
-for x, p in enumerate(PR):
-    for k, v in enumerate(p[1:]):
-        a.text(x + (k - 1) * (bw + 0.03), v + 1.4, "%.1f" % v, ha="center",
-               fontsize=18.5, fontweight="bold",
-               color=[NEUTRAL, BLUE, ORANGE][k])
-a.set_xticks(list(xs)); a.set_xticklabels([p[0] for p in PR], fontsize=19.5)
-a.set_ylim(0, 95); a.set_ylabel("SIUO harmful rate (%)", fontsize=23, labelpad=8)
-a.legend(fontsize=20, frameon=False, ncol=3, handletextpad=0.4, columnspacing=1.4,
-         loc="lower center", bbox_to_anchor=(0.5, 1.01), borderaxespad=0)
-clean_axes(a, grid_axis="y")
-for x in (1, 2):     # the two held-out models, where corruption-awareness backfires
-    a.annotate("worse", xy=(x + (bw + 0.03), PR[x][3] + 10.5), fontsize=19.5,
-               color=ORANGE, ha="center", fontweight="bold")
-text(CX[2] + 0.55, y_b4 + h_b4 - 2.34,
-     "A $\\bf{generic}$ safety prompt wins all 12 cells — free, no training. Adding\n"
-     "“the image may be corrupted” wins 4/4 where built, loses 8/8 held out.",
-     size=21.5, color=MUTED)
-takeaway(CX[2] + 0.35, y_b4 + h_b4 - 1.05, COLW - 0.7,
-         "We report this against our own proposed defense.", size=24)
+# --- 4. the fix, as before/after numbers rather than a chart
+header(cx, y_row2, COLW, "A SIMPLE, FREE FIX", num=4)
+box(cx, y_row2 + 1.02, COLW, PANEL_H - 1.02)
+text(cx + 0.60, y_row2 + 1.80,
+     "One line of system prompt telling the model\nto check safety. No training, no weight access.",
+     size=25, color=MUTED)
+text(cx + 0.60, y_row2 + 3.42, "SIUO ASR, averaged over conditions", size=22,
+     weight="bold", color=MUTED)
+FIX = [("LLaVA-CoT", 71.6, 60.7), ("Qwen2.5-VL", 72.6, 55.6), ("R1-Onevision", 85.2, 70.9)]
+for i, (name, before, after) in enumerate(FIX):
+    yy = y_row2 + 4.45 + i * 1.55
+    text(cx + 0.60, yy, name, size=26, va="center")
+    text(cx + 7.10, yy, "%.1f" % before, size=36, weight="bold", color=MUTED,
+         ha="right", va="center")
+    text(cx + 7.95, yy, r"$\rightarrow$", size=34, color=INK, ha="center", va="center")
+    text(cx + 10.15, yy, "%.1f" % after, size=36, weight="bold", color=BLUE,
+         ha="right", va="center")
+text(cx + 0.60, y_row2 + 8.70,
+     "Lower on $\\bf{all\\ 12}$ cells we tested, by 8 to 20 points.", size=25)
+# the honest half: the corruption-aware variant is the part that fails to transfer
+fig.patches.append(Rectangle((X(cx + 0.55), Y(H - y_row2 - PANEL_H + 1.58)), X(COLW - 1.1),
+                             Y(1.34), fc="#FBEDE9", ec="none",
+                             transform=fig.transFigure, zorder=2))
+text(cx + 0.85, y_row2 + PANEL_H - 2.70,
+     "But adding “the image may be corrupted” wins 4/4 on the\n"
+     "model we built it on — and loses 8/8 on both held-out models.",
+     size=22, color="#8A3B2A")
+takeaway(cx + 0.35, y_row2 + PANEL_H - 1.28, COLW - 0.7,
+         "Generic safety prompting transfers. Our\ncorruption-aware version does not.", size=25)
 
 # =============================== BANNER =====================================
 fig.patches.append(Rectangle((0, Y(H - y_ban - h_ban)), 1, Y(h_ban),
                              fc=INK, ec="none", transform=fig.transFigure, zorder=2))
 fig.patches.append(Rectangle((0, Y(H - y_ban - h_ban)), 1, Y(0.13),
                              fc=GOLD, ec="none", transform=fig.transFigure, zorder=3))
-text(W / 2, y_ban + h_ban / 2 - 0.10,
-     "Utility benchmarks cannot certify safety.", size=46, weight="bold",
-     color="white", ha="center", va="center")
-text(W / 2, y_ban + h_ban / 2 + 0.62,
+text(W / 2, y_ban + 0.72, "Utility benchmarks cannot certify safety.",
+     size=46, weight="bold", color="white", ha="center", va="center")
+text(W / 2, y_ban + 1.40,
      "Make image corruption a first-class axis in safety evaluation and training.",
      size=31, color=GOLD, ha="center", va="center")
 
-# ------------------------------- FOOTER -------------------------------------
-text(M, H - 0.80,
+text(M, 34.65,
      "ImageNet-C · Hendrycks & Dietterich, ICLR 2019      SIUO · Wang et al., NAACL 2025      "
      "VLSBench · Hu et al., ACL 2025      HoliSafe · 2025      Think-in-Safety · Lou et al., 2025",
      size=19, color=MUTED, va="center")
-text(W - M, H - 0.80,
+text(W - M, 34.65,
      "UCF Center for Research in Computer Vision · Boston University · Supported in part by NSF",
      size=19, color=MUTED, ha="right", va="center")
 
 fig.savefig(OUT + ".pdf")
 fig.savefig(OUT + ".png", dpi=95)
 print("saved", OUT + ".pdf")
-print("saved", OUT + ".png")
