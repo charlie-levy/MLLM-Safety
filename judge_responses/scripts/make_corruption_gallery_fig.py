@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Corruption-gallery figure: one benchmark image (SIUO 2014, the airport X-ray
-scanner from the flip figure) shown clean and through the ten ImageNet-C
+"""Corruption-gallery figure: one benchmark image (SIUO 9014, the bedroom from
+the flip figure) shown clean and through the ten ImageNet-C
 corruptions the paper sweeps, at the exact severities used (three blurs at 5,
 the rest at 3, custom JPEG). Ties the qualitative flip example to the corruption
 bank so a reviewer can see the perceptual range at a glance.
@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.join(ROOT, "experiments", "common"))
 import corruption_lib as C  # noqa: E402
 
 OUT = os.path.join(REPO, "REU_WACV", "figures")
-IMG = os.path.join(REPO, "example_images", "flip_2014_clean.png")
+IMG = os.path.join(REPO, "example_images", "flip_9014_clean.png")
 INK = "#1A1A1A"
 plt.rcParams.update({"font.size": 8, "text.color": INK, "pdf.fonttype": 42})
 

@@ -7,7 +7,7 @@ the two evidence charts, column 3 carries the hero image and the fix. Four visua
 panels, not six -- a poster is read standing up, in about two minutes.
 
 FIGURES are the paper's, in the paper's simple single-chart form:
-  * the flip composite is the paper figure placed directly (figures/flip_2014)
+  * the flip composite is the paper figure placed directly (figures/flip_9014)
   * the decoupling scatter and the dose-response curve are redrawn here from the
     same data as figures/decoupling and figures/dose_response, at poster type size
 
@@ -283,7 +283,7 @@ cx = CX[2]
 # --- 3. the hero: the paper's flip composite, placed as-is
 header(cx, y_top, COLW, "WHAT IT LOOKS LIKE", num=3)
 box(cx, y_top + 1.02, COLW, PANEL_H - 1.02)
-flip = os.path.join(FIGS, "flip_2014.png")
+flip = os.path.join(FIGS, "flip_9014.png")
 if os.path.exists(flip):
     place(flip, cx + 0.45, y_top + 1.35, COLW - 0.9, PANEL_H - 3.85)
 text(cx + COLW / 2, y_top + PANEL_H - 2.05,
