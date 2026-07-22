@@ -126,33 +126,38 @@ M, GAP = 1.1, 0.55
 COLW = (W - 2 * M - 2 * 0.6) / 3.0
 CX = [M, M + COLW + 0.6, M + 2 * (COLW + 0.6)]
 
-y_title, h_title = 0.80, 4.05
-y_hook = y_title + h_title + 0.50;  h_hook = 8.30
+y_title, h_title = 0.70, 4.80
+y_hook = y_title + h_title + 0.45;  h_hook = 8.30
 y_b3   = y_hook + h_hook + 0.50;    h_b3   = 8.30
 y_b4   = y_b3 + h_b3 + 0.50;        h_b4   = 8.30
 y_ban  = y_b4 + h_b4 + 0.5;         h_ban  = 1.85
 
 # ------------------------------- TITLE --------------------------------------
-fig.patches.append(Rectangle((0, Y(H - y_title - h_title)), 1, Y(h_title),
-                             fc=GOLD, ec="none", transform=fig.transFigure, zorder=1))
-# Two lines: the logos occupy the outer ~6in on each side, leaving ~32in of clear
-# width. One line of this title does not fit there at poster weight.
-text(W / 2, y_title + 1.02, "Corruptions Can Weaken Safety",
+# Follows the original poster's header: a white field with a CENTRED gold title
+# panel, and the logos sitting on white to either side rather than on the gold.
+TBX, TBW = 11.0, 25.4
+box(TBX, y_title, TBW, h_title - 0.10, fc=GOLD, ec="none", r=0.0)
+text(TBX + TBW / 2, y_title + 1.30, "Corruptions Can Weaken Safety",
      size=FS_TITLE, weight="bold", ha="center", va="center")
-text(W / 2, y_title + 2.12, "Before They Weaken Visual Understanding",
+text(TBX + TBW / 2, y_title + 2.48, "Before They Weaken Visual Understanding",
      size=FS_TITLE, weight="bold", ha="center", va="center")
-text(W / 2, y_title + 3.16,
-     "Charles Levy$^{1}$    Adeel Yousaf$^{2}$    James Beetham$^{2}$        "
-     "$^{1}$Boston University    $^{2}$University of Central Florida",
+text(TBX + TBW / 2, y_title + 3.56,
+     "Charles Levy$^{1}$,   Adeel Yousaf$^{2}$,   James Beetham$^{2}$",
      size=FS_AUTH, ha="center", va="center")
+text(TBX + TBW / 2, y_title + 4.32,
+     "$^{1}$Boston University        $^{2}$University of Central Florida",
+     size=33, ha="center", va="center")
 
+# Logos are alpha-keyed (outer white flood-filled to transparent) so they sit on
+# any background without a white card around them.
 LOGO = os.path.join(os.path.dirname(HERE), "poster_assets")
-for fn, lx, lw_, lh in [("ucf.png", 1.0, 6.0, 2.15), ("bu.png", 39.6, 3.4, 2.05),
-                        ("nsf.png", 43.9, 2.15, 2.05)]:
-    p = os.path.join(LOGO, fn)
-    if os.path.exists(p):
-        a = ax_at(lx, y_title + (h_title - lh) / 2, lw_, lh)
-        a.imshow(mpimg.imread(p)); a.axis("off")
+for fn, lx, ly, lw_, lh in [("ucf.png", 1.3,   y_title + 1.28, 8.4, 2.35),
+                            ("bu.png",  39.0,  y_title + 0.42, 5.6, 2.00),
+                            ("nsf.png", 40.55, y_title + 2.62, 2.5, 2.05)]:
+    pth = os.path.join(LOGO, fn)
+    if os.path.exists(pth):
+        a = ax_at(lx, ly, lw_, lh)
+        a.imshow(mpimg.imread(pth)); a.axis("off")
 
 # ================================ HOOK ======================================
 hx = [M, M + 13.0 + 0.45, M + 13.0 + 0.45 + 18.6 + 0.45]
@@ -197,7 +202,7 @@ text(hx[2] + 0.55, y_hook + 0.75, "WHAT WE FOUND", size=30, weight="bold", color
 finds = [("Safety breaks before capability.",
           "Corruptions with $\\bf{zero}$ accuracy cost\nstill raise harmful rate."),
          ("Direction depends on where harm lives.",
-          "Blur the $\\it{attack}$ $\\rightarrow$ safer.\nBlur the $\\it{evidence}$ $\\rightarrow$ less safe."),
+          "Blur the $\\it{attack}$ $\\rightarrow$ safer ($-11.3$).\nBlur the $\\it{evidence}$ $\\rightarrow$ less safe ($+7.0$)."),
          ("Reasoning is not a safeguard.",
           "Reasoning-trained models start less\nsafe and degrade further."),
          ("Prompting helps — but not our part.",
@@ -284,31 +289,35 @@ takeaway(CX[1] + 0.35, y_b3 + h_b3 - 1.30, COLW - 0.7,
          "Replicates on HoliSafe — an independent set 3× larger.", size=24)
 
 # ======================= PANEL 3: HARM-LOCATION ==============================
-header(CX[2], y_b3, COLW, 3, "THE HARM-LOCATION PRINCIPLE")
+header(CX[2], y_b3, COLW, 3, "EVEN THE MILDEST BLUR BREAKS IT")
 box(CX[2], y_b3 + 1.02, COLW, h_b3 - 1.02, fc="white")
-SIG = [("MM-SafetyBench", "attack rendered in image", -11.3),
-       ("HoliSafe", "image + text jointly unsafe", 3.8),
-       ("SPA-VL", "natural scene + text", 4.6),
-       ("VLSBench", "risk visible only in image", 7.0)]
-a = ax_at(CX[2] + 4.35, y_b3 + 1.95, COLW - 5.3, h_b3 - 4.40)
-ys = list(range(len(SIG) - 1, -1, -1))
-for yi, (n, sub, d) in zip(ys, SIG):
-    a.barh(yi, d, height=0.60, color=RED if d > 0 else BLUE, zorder=3)
-    a.text(d + (0.55 if d > 0 else -0.55), yi, "%+.1f" % d, va="center",
-           ha="left" if d > 0 else "right", fontsize=27, fontweight="bold",
-           color=RED if d > 0 else BLUE)
-a.axvline(0, color=INK, lw=2.4, zorder=4)
-a.set_xlim(-14.5, 11.5); a.set_ylim(-0.6, len(SIG) - 0.35)
-a.set_yticks(ys)
-a.set_yticklabels(["%s\n%s" % (n, s) for n, s, _ in SIG], fontsize=21)
-a.set_xlabel(r"$\Delta$ attack success under zoom blur (pp)", fontsize=24, labelpad=10)
-a.text(-7.4, len(SIG) - 0.52, "◀ SAFER", fontsize=23, color=BLUE, ha="center", fontweight="bold")
-a.text(5.4, len(SIG) - 0.52, "LESS SAFE ▶", fontsize=23, color=RED, ha="center", fontweight="bold")
-clean_axes(a, grid_axis="x")
-a.spines["left"].set_visible(False); a.tick_params(left=False)
+SEV = [0, 1, 2, 3, 4, 5]                       # 0 = clean
+HR_R = [68.3, 77.3, 80.8, 79.6, 78.4, 80.8]    # part12_dose_response.csv, LLaVA-CoT
+HR_C = [68.3, 71.3, 73.1, 74.3, 73.7, 70.7]
+a = ax_at(CX[2] + 2.05, y_b3 + 2.22, COLW - 3.0, h_b3 - 5.45)
+a.axvspan(-0.42, 0.42, color="#EFEEEA", zorder=0)
+for ys, col, lab in [(HR_R, BLUE, "reasoning (HR$_R$)"), (HR_C, ORANGE, "final answer (HR$_C$)")]:
+    a.plot(SEV, ys, "-o", color=col, lw=3.4, ms=15, markeredgecolor="white",
+           markeredgewidth=2.6, label=lab, zorder=4)
+# the whole point: clean -> the WEAKEST setting is most of the damage
+a.annotate("", xy=(1, 77.3), xytext=(0, 68.3),
+           arrowprops=dict(arrowstyle="-|>", lw=3.2, color=RED,
+                           shrinkA=14, shrinkB=14, mutation_scale=32), zorder=5)
+a.text(0.26, 87.0, "$+9.0$ at severity 1", fontsize=21.5, color=RED,
+       fontweight="bold", ha="left", va="top")
+a.set_xticks(SEV); a.set_xticklabels(["clean", "1", "2", "3", "4", "5"])
+a.set_xlim(-0.55, 5.35); a.set_ylim(63, 88)
+a.set_xlabel("zoom-blur severity", fontsize=25, labelpad=10)
+a.set_ylabel("SIUO harmful rate (%)", fontsize=24, labelpad=8)
+a.legend(fontsize=21, frameon=False, ncol=2, handletextpad=0.4, columnspacing=1.6,
+         loc="lower center", bbox_to_anchor=(0.5, 1.01), borderaxespad=0)
+clean_axes(a)
+text(CX[2] + 0.55, y_b3 + h_b3 - 2.05,
+     "Severity 1 is close to imperceptible, yet it already carries most of the\n"
+     "loss. Severities 2-5 sit on that same plateau rather than climbing.",
+     size=21.5, color=MUTED)
 takeaway(CX[2] + 0.35, y_b3 + h_b3 - 1.30, COLW - 0.7,
-         "Blur the $\\bf{attack}$ $\\rightarrow$ safer.   Blur the $\\bf{evidence}$ $\\rightarrow$ less safe.\n"
-         "Prior contradictions dissolve once you name the channel.", size=24)
+         "There is no safe amount of corruption — the damage is\ndone at the weakest setting we can apply.", size=24)
 
 # ==================== PANEL 4: REASONING IS NOT A SAFEGUARD ==================
 header(CX[0], y_b4, COLW, 4, "REASONING IS NOT A SAFEGUARD")
