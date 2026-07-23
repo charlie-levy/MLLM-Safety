@@ -126,7 +126,7 @@ The mechanism is visible in the models' own words, and it puts a qualitative fac
 
 \begin{table}[t]
   \centering
-  \caption{\textbf{A matched pair isolates reasoning post-training.} Qwen3-VL-8B~\cite{qwen3vl2025} Instruct vs.\ Thinking on SIUO (167 items, same GPT-4o judge): same family, same scale, differing in reasoning post-training. The Thinking variant is less safe on clean images ($+7.2$) \emph{and} degrades further under every corruption ($+11.4$ worst case vs.\ $+7.2$). Its reasoning trace is also far more harmful than its answer (HR\textsubscript{R}$-$HR\textsubscript{C} $= 8.4$--$13.2$), a gap absent in the Instruct sibling ($-1.8$ to $+0.6$), which has no separate trace.}
+  \caption{\textbf{A matched pair isolates reasoning post-training.} Qwen3-VL-8B~\cite{qwen3vl2025} Instruct vs.\ Thinking on SIUO (167 items, same GPT-4o judge): same family, same scale, differing in reasoning post-training. The Thinking variant is less safe on clean images (53.3 vs.\ 46.1 HR\textsubscript{C}) and more corruption-sensitive: its worst self-degradation is $+11.4$ points vs.\ the Instruct sibling's $+7.2$. Its reasoning trace is also far more harmful than its answer (HR\textsubscript{R}$-$HR\textsubscript{C} $= 8.4$--$13.2$), a gap absent in the Instruct sibling ($-1.8$ to $+0.6$), which has no separate trace.}
   \label{tab:e1-thinking}
   \small
   \setlength{\tabcolsep}{4pt}
