@@ -45,9 +45,12 @@ import argparse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))                    # .../llava_cot_eval
-sys.path.insert(0, HERE)                                         # prompts
-sys.path.insert(0, os.path.join(REPO, "code"))                   # run_eval, dataset_loader, metrics
+# insert() order is load-bearing: each insert(0) prepends, so the LAST insert wins
+# lookups. part4 also has a run_inference.py; HERE must be inserted last so that
+# `from run_inference import fold_prompt` resolves to part8's module, not part4's.
 sys.path.insert(0, os.path.join(REPO, "experiments", "part4"))   # qwen_models
+sys.path.insert(0, os.path.join(REPO, "code"))                   # run_eval, dataset_loader, metrics
+sys.path.insert(0, HERE)                                         # prompts, run_inference (shadows part4's)
 
 import run_eval as RE                                            # noqa: E402  (chdir's to REPO)
 from dataset_loader import load_xstest, load_mmsa                # noqa: E402
