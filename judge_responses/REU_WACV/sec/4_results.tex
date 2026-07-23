@@ -76,6 +76,7 @@ If corruption simply blinded the model, safety and utility would fall together. 
   \label{tab:benign-control}
   \small
   \setlength{\tabcolsep}{4pt}
+  \resizebox{\linewidth}{!}{%
   \begin{tabular}{lccc}
     \toprule
     & benign, natural & benign, text-on-img & harmful, natural \\
@@ -86,7 +87,7 @@ If corruption simply blinded the model, safety and utility would fall together. 
     \quad $+$SAGE         & $-5.1$ & $-0.4$ & --- \\
     \quad $+$MSR$^\dagger$ & $+0.6$ & $+0.1$ & --- \\
     \bottomrule
-  \end{tabular}
+  \end{tabular}}
 \end{table}
 
 Perception failure is not the only mundane explanation, and the second one is more dangerous to our claim. If corruption simply made models answer more and refuse less --- a global shift in refusal propensity --- then harmful rate would rise for a reason having nothing to do with safety-relevant visual evidence, and our mechanism would be an artifact.
